@@ -1,4 +1,5 @@
-import os, json, hmac, hashlib, time
+import os, json, hmac, hashlib, time, logging, html
+import httpx
 from pathlib import Path
 from urllib.parse import parse_qsl
 from fastapi import FastAPI, HTTPException
@@ -11,6 +12,8 @@ init()
 app=FastAPI(docs_url=None,redoc_url=None)
 TOKEN=os.getenv("BOT_TOKEN","")
 LOCAL=os.getenv("LOCAL_PREVIEW")=="1"
+REVIEW_CHAT_ID=os.getenv("REVIEW_CHAT_ID","").strip()
+logger=logging.getLogger(__name__)
 class Base(BaseModel):
     initData:str=""
 class Review(Base):
@@ -39,10 +42,30 @@ def me(body:Base):
     profile=guest(p["id"]) if p["id"] else None
     return {"name":p.get("first_name","Гость"),"preview":p["id"]==0,"bookingEnabled":False,"confirmedBookings":profile["bookings"] if profile else 0,"guestStatus":profile["status"] if profile else "Гость"}
 @app.post("/api/review")
-def review(body:Review):
+async def review(body:Review):
     p=auth(body.initData)
     if p["id"]==0:return {"ok":True,"preview":True}
     feedback(p["id"],body.stars,body.comment)
+    # Delivery is best-effort: a Telegram failure must never lose the saved review.
+    if REVIEW_CHAT_ID and TOKEN:
+        profile=user(p["id"]) or {}
+        guest_name=html.escape(profile.get("name") or p.get("first_name") or "Гость")
+        comment=html.escape(body.comment.strip() or "Без комментария")
+        message=(f"⭐ <b>Новый отзыв Steindamm 99</b>\\n"
+                 f"Гость: {guest_name}\\n"
+                 f"Оценка: {body.stars}/5\\n"
+                 f"Telegram ID: <code>{p['id']}</code>\\n\\n"
+                 f"{comment}")
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                response=await client.post(
+                    f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+                    json={"chat_id":REVIEW_CHAT_ID,"text":message,"parse_mode":"HTML","disable_web_page_preview":True},
+                )
+                response.raise_for_status()
+                if not response.json().get("ok"): raise RuntimeError("Telegram sendMessage returned not ok")
+        except Exception:
+            logger.exception("Review stored but Telegram notification was not delivered")
     return {"ok":True}
 @app.post("/api/booking")
 def booking(body:Base):
