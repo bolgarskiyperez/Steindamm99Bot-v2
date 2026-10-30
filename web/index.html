@@ -1,21 +1,98 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Steindamm 99</title><script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>body{margin:0;background:#151515;color:#f7f3eb;font:16px system-ui,sans-serif}main{max-width:520px;margin:auto;padding:30px 18px}h1{font-size:30px}button,textarea{font:inherit}button{cursor:pointer;background:#302b26;color:white;border:1px solid #5c4a39;border-radius:14px;padding:16px;text-align:left;width:100%;margin:8px 0}button:disabled{opacity:.45}#booking{display:none}#bookingFrame{width:100%;height:70vh;min-height:520px;box-sizing:border-box;border:0;border-radius:12px;background:#fff}a.booking-link{display:block;color:#f7f3eb;background:#7d5730;border-radius:14px;text-align:center;padding:15px;margin:10px 0;text-decoration:none;font-weight:600}.hint{font-size:13px;line-height:1.5}textarea{box-sizing:border-box;width:100%;min-height:100px;background:#272727;color:white;padding:12px;border:1px solid #555;border-radius:12px}.muted{color:#b7afa3}#review{display:none}#stars button{width:18%;text-align:center;padding:12px 0}.selected{background:#7d5730}</style></head>
+<style>body{margin:0;background:#151515;color:#f7f3eb;font:16px system-ui,sans-serif}main{max-width:520px;margin:auto;padding:30px 18px}h1{font-size:30px}button,textarea{font:inherit}button{cursor:pointer;background:#302b26;color:white;border:1px solid #5c4a39;border-radius:14px;padding:16px;text-align:left;width:100%;margin:8px 0}button:disabled{opacity:.45}#booking{display:none}#bookingFrame{width:100%;height:70vh;min-height:520px;box-sizing:border-box;border:0;border-radius:12px;background:#fff}a.booking-link{display:block;color:#f7f3eb;background:#7d5730;border-radius:14px;text-align:center;padding:15px;margin:10px 0;text-decoration:none;font-weight:600}.hint{font-size:13px;line-height:1.5}textarea{box-sizing:border-box;width:100%;min-height:100px;background:#272727;color:white;padding:12px;border:1px solid #555;border-radius:12px}.muted{color:#b7afa3}#review{display:none}#stars button{width:18%;text-align:center;padding:12px 0}.selected{background:#7d5730}#admin{display:none}.admin-card{background:#23211f;border:1px solid #4c4035;border-radius:14px;padding:14px;margin:10px 0;overflow-wrap:anywhere}.admin-meta{font-size:13px;color:#b7afa3;margin-top:6px}.admin-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.admin-stats>div{background:#24211e;padding:14px;border-radius:12px}.admin-stats b{font-size:24px;display:block}.admin-row{display:flex;gap:8px;align-items:center}.admin-row button{flex:1;text-align:center;padding:12px 5px}.admin-field{background:#272727;color:#fff;border:1px solid #555;border-radius:10px;padding:13px;box-sizing:border-box;width:100%;font:inherit;margin:5px 0}#adminResults,#adminReviews{max-height:55vh;overflow:auto}.tiny{font-size:12px;color:#b7afa3}#adminControls{display:none} </style></head>
 <body><main><h1>Steindamm 99</h1><p class="muted" id="hello">Добро пожаловать!</p>
-<section id="home"><button onclick="showBooking()">📅 Забронировать столик</button><button onclick="showReview()">⭐ Как прошёл ваш визит?</button></section>
-<section id="booking"><button onclick="back()">← Назад</button><h2>Бронирование столика</h2><p class="muted hint">Бронирование на 2 часа для 1–4 гостей. Для компаний больше 4 человек свяжитесь с рестораном по телефону. Предзаказы не принимаются.</p><iframe id="bookingFrame" title="Бронирование Steindamm 99 через Restoplace" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe><p class="muted hint">Если форма не отображается или не работает, откройте её напрямую:</p><a class="booking-link" id="bookingLink" href="https://644697.restoplace.ws/?clckid=6afa4268" target="_blank" rel="noopener noreferrer">Открыть бронирование в Restoplace ↗</a></section><section id="review"><button onclick="back()">← Назад</button><h2>Как прошёл ваш визит?</h2><p>Оцените посещение</p><div id="stars"></div><p>Комментарий</p><textarea id="comment" placeholder="Расскажите о вашем визите"></textarea><button onclick="sendReview()">Отправить отзыв</button></section><p id="status" class="muted"></p></main>
+<section id="home"><button onclick="showBooking()">📅 Забронировать столик</button><button onclick="showReview()">⭐ Как прошёл ваш визит?</button><button id="adminEntry" style="display:none" onclick="showAdmin()">🔐 Панель администратора</button></section>
+<section id="booking"><button onclick="back()">← Назад</button><h2>Бронирование столика</h2><p class="muted hint">Бронирование на 2 часа для 1–4 гостей. Для компаний больше 4 человек свяжитесь с рестораном по телефону. Предзаказы не принимаются.</p><iframe id="bookingFrame" title="Бронирование Steindamm 99 через Restoplace" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe><p class="muted hint">Если форма не отображается или не работает, откройте её напрямую:</p><a class="booking-link" id="bookingLink" href="https://644697.restoplace.ws/?clckid=6afa4268" target="_blank" rel="noopener noreferrer">Открыть бронирование в Restoplace ↗</a></section><section id="review"><button onclick="back()">← Назад</button><h2>Как прошёл ваш визит?</h2><p>Оцените посещение</p><div id="stars"></div><p>Комментарий</p><textarea id="comment" placeholder="Расскажите о вашем визите"></textarea><button onclick="sendReview()">Отправить отзыв</button></section><section id="admin">
+<button onclick="back()">← На главную</button>
+<h2>Панель администратора</h2>
+<p class="muted">База гостей Steindamm 99</p>
+<div class="admin-stats" id="adminStats"></div>
+<div id="adminControls">
+<h3>Поиск гостей</h3>
+<input id="adminSearch" class="admin-field" placeholder="Имя, телефон или Telegram ID" maxlength="100">
+<label class="tiny" for="adminDate">Дата регистрации (необязательно, UTC)</label>
+<input id="adminDate" class="admin-field" type="date">
+<label class="admin-row"><input id="adminRegular" type="checkbox"> Только постоянные гости (5+ броней)</label>
+<div class="admin-row"><button onclick="loadGuests(true)">Найти</button><button onclick="exportGuests()">Скачать CSV</button></div>
+<div id="adminResults"></div>
+<div class="admin-row"><button id="guestMore" style="display:none" onclick="loadGuests(false)">Показать ещё гостей</button></div>
+<h3>Последние отзывы</h3>
+<div id="adminReviews"></div>
+<button id="reviewMore" style="display:none" onclick="loadReviews(false)">Показать ещё отзывы</button>
+</div>
+</section>
+<p id="status" class="muted"></p></main>
 <script>
 const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();
 const initData=tg?.initData||"";let rating=0;
 const bookingUrl="https://644697.restoplace.ws/?clckid=6afa4268";
-let bookingLoaded=false;
-function showBooking(){document.getElementById("home").style.display="none";document.getElementById("review").style.display="none";document.getElementById("booking").style.display="block";if(!bookingLoaded){document.getElementById("bookingFrame").src=bookingUrl;bookingLoaded=true}}
-function showReview(){document.getElementById("booking").style.display="none";document.getElementById("home").style.display="none";document.getElementById("review").style.display="block"}
-function back(){document.getElementById("home").style.display="block";document.getElementById("review").style.display="none";document.getElementById("booking").style.display="none"}
+let bookingLoaded=false,guestOffset=0,reviewOffset=0,adminBusy=false;
+function showBooking(){document.getElementById("admin").style.display="none";document.getElementById("home").style.display="none";document.getElementById("review").style.display="none";document.getElementById("booking").style.display="block";if(!bookingLoaded){document.getElementById("bookingFrame").src=bookingUrl;bookingLoaded=true}}
+function showReview(){document.getElementById("admin").style.display="none";document.getElementById("booking").style.display="none";document.getElementById("home").style.display="none";document.getElementById("review").style.display="block"}
+function back(){document.getElementById("home").style.display="block";document.getElementById("review").style.display="none";document.getElementById("booking").style.display="none";document.getElementById("admin").style.display="none"}
 function draw(){document.getElementById("stars").innerHTML=[1,2,3,4,5].map(n=>'<button class="'+(n<=rating?'selected':'')+'" onclick="rate('+n+')">★</button>').join("")}
 function rate(n){rating=n;draw()}draw();
 async function request(path,data){const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({initData,...data})});const j=await r.json();if(!r.ok)throw Error(j.detail||"Ошибка");return j}
 async function sendReview(){if(!rating){document.getElementById("status").textContent="Выберите оценку";return}try{const r=await request("/api/review",{stars:rating,comment:document.getElementById("comment").value});document.getElementById("status").textContent=r.preview?"Тестовый отзыв: отправка работает":"Спасибо за отзыв!";back()}catch(e){document.getElementById("status").textContent=e.message}}
-request("/api/me",{}).then(p=>{document.getElementById("hello").textContent="Здравствуйте, "+p.name+"!"}).catch(e=>{document.getElementById("status").textContent=e.message})
+request("/api/me",{}).then(p=>{document.getElementById("hello").textContent="Здравствуйте, "+p.name+"!";if(p.isAdmin)document.getElementById("adminEntry").style.display="block"}).catch(e=>{document.getElementById("status").textContent=e.message})
+
+function safeText(v){return String(v??"")}
+function element(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=safeText(txt);return e}
+function adminParams(){return {query:document.getElementById("adminSearch").value.trim(),date:document.getElementById("adminDate").value,regularOnly:document.getElementById("adminRegular").checked}}
+async function showAdmin(){
+  for(const id of ["home","review","booking"])document.getElementById(id).style.display="none";
+  document.getElementById("admin").style.display="block";
+  document.getElementById("status").textContent="";
+  try{
+    const stats=await request("/api/admin/stats",{});
+    const root=document.getElementById("adminStats");root.replaceChildren();
+    for(const [name,num] of [["Гостей",stats.guests],["Постоянных",stats.regular],["Отзывов",stats.reviews],["Подтверждённых броней",stats.confirmedBookings]]){
+      const box=element("div");box.append(element("b","",num),element("span","tiny",name));root.append(box)
+    }
+    document.getElementById("adminControls").style.display="block";
+    await Promise.all([loadGuests(true),loadReviews(true)])
+  }catch(e){document.getElementById("status").textContent="Админ-панель: "+e.message}
+}
+async function loadGuests(reset){
+  if(adminBusy)return;
+  adminBusy=true;
+  try{
+    if(reset){guestOffset=0;document.getElementById("adminResults").replaceChildren()}
+    const data=await request("/api/admin/guests",{...adminParams(),offset:guestOffset});
+    const root=document.getElementById("adminResults");
+    if(reset&&!data.items.length)root.append(element("p","muted","Гости не найдены"));
+    for(const g of data.items){
+      const item=element("div","admin-card");
+      item.append(element("b","",g.name),element("div","admin-meta","Телефон: "+g.phone),element("div","admin-meta","Telegram ID: "+g.id),element("div","admin-meta",g.status+" • Броней: "+g.bookings),element("div","admin-meta","Регистрация: "+(g.created_at||"Дата неизвестна")+" (UTC)"));
+      root.append(item)
+    }
+    guestOffset+=data.items.length;
+    document.getElementById("guestMore").style.display=data.items.length===50?"block":"none"
+  }catch(e){document.getElementById("status").textContent="Поиск гостей: "+e.message}finally{adminBusy=false}
+}
+async function loadReviews(reset){
+  try{
+    if(reset){reviewOffset=0;document.getElementById("adminReviews").replaceChildren()}
+    const data=await request("/api/admin/reviews",{offset:reviewOffset});
+    const root=document.getElementById("adminReviews");
+    if(reset&&!data.items.length)root.append(element("p","muted","Отзывов пока нет"));
+    for(const r of data.items){
+      const item=element("div","admin-card");
+      item.append(element("b","",r.name+" • "+r.stars+"/5 ⭐"),element("div","admin-meta",r.created_at+" UTC • ID "+r.user_id),element("p","",r.comment||"Без комментария"));root.append(item)
+    }
+    reviewOffset+=data.items.length;
+    document.getElementById("reviewMore").style.display=data.items.length===50?"block":"none"
+  }catch(e){document.getElementById("status").textContent="Отзывы: "+e.message}
+}
+async function exportGuests(){
+  try{
+    const resp=await fetch("/api/admin/export",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({initData,...adminParams()})});
+    if(!resp.ok)throw Error("Не удалось выгрузить базу (код "+resp.status+")");
+    const blob=await resp.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=adminParams().regularOnly?"regular.csv":"guests.csv";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)
+  }catch(e){document.getElementById("status").textContent=e.message}
+}
 </script></body></html>
