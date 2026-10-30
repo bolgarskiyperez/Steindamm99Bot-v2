@@ -50,6 +50,16 @@ def admin_stats_api(body:Base):
     require_admin(body.initData)
     return admin_stats()
 
+@app.post("/api/admin/guests")
+def admin_guests_api(body:AdminQuery):
+    require_admin(body.initData)
+    return {"items":admin_guest_list(body.query,body.date or None,body.regularOnly,50,body.offset)}
+
+@app.post("/api/admin/reviews")
+def admin_reviews_api(body:AdminQuery):
+    require_admin(body.initData)
+    return {"items":admin_review_list(50,body.offset)}
+
 @app.get("/")
 def index(): return FileResponse(Path(__file__).parent/"web"/"index.html")
 @app.post("/api/me")
