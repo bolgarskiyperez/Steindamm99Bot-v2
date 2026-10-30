@@ -2,11 +2,12 @@ import os
 import csv
 import io
 import sqlite3
+from datetime import date
 from telegram import InputFile
 from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-from db import init, user, save_user, guests, guest, reviews, add_verified_booking, cancel_booking
+from db import init, user, save_user, guests, guest, reviews, add_verified_booking, cancel_booking, find_guests, reviews_by_date
 load_dotenv()
 TOKEN=os.getenv("BOT_TOKEN","")
 URL=os.getenv("WEBAPP_URL","").strip()
@@ -52,6 +53,9 @@ async def admin(update:Update, context:ContextTypes.DEFAULT_TYPE):
         "/guests — количество гостей и постоянных гостей\n"
         "/regular — список постоянных гостей\n"
         "/guest ID — карточка гостя по Telegram ID\n"
+        "/find ЗАПРОС — поиск по имени, телефону, ID\n"
+        "/finddate ГГГГ-ММ-ДД — поиск по регистрации\n"
+        "/reviewsdate ГГГГ-ММ-ДД — отзывы за день\n"
         "/reviews — последние отзывы\n"
         "/exportguests — выгрузка CSV всех гостей\n"
         "/exportregular — выгрузка CSV постоянных гостей\n"
@@ -138,6 +142,44 @@ async def cancelbooking_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
     ok=cancel_booking(context.args[0])
     await update.message.reply_text("Бронь исключена из подсчёта." if ok else "Активная бронь с таким ID не найдена.")
 
+
+def valid_day(s):
+    try:
+        return date.fromisoformat(s).isoformat()==s
+    except ValueError:
+        return False
+
+async def find_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if not authorized(update): return
+    q=" ".join(context.args).strip()
+    if len(q)<2: return await update.message.reply_text("Укажите минимум 2 символа: /find Иван или /find 7999")
+    result=find_guests(q)
+    if not result: return await update.message.reply_text("Гости по запросу не найдены")
+    lines=[f'{x["name"]} • {x["phone"]} • {x["status"]} • {x["bookings"]} броней • ID {x["id"]}' for x in result]
+    await update.message.reply_text("Найденные гости (до 30):\n"+"\n".join(lines))
+
+async def finddate_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if not authorized(update): return
+    if len(context.args)!=1 or not valid_day(context.args[0]):
+        return await update.message.reply_text("Формат: /finddate 2026-10-30 (дата регистрации в боте)")
+    found=find_guests(registered_date=context.args[0])
+    if not found: return await update.message.reply_text("За эту дату регистраций не найдено. Для гостей, добавленных до обновления, дата неизвестна.")
+    lines=[f'{x["name"]} • {x["phone"]} • ID {x["id"]}' for x in found]
+    await update.message.reply_text("Регистрации за "+context.args[0]+" (до 30):\n"+"\n".join(lines))
+
+async def reviewsdate_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if not authorized(update): return
+    if len(context.args)!=1 or not valid_day(context.args[0]):
+        return await update.message.reply_text("Формат: /reviewsdate 2026-10-30")
+    found=reviews_by_date(context.args[0])
+    if not found: return await update.message.reply_text("За эту дату отзывов нет")
+    for r in found:
+        await update.message.reply_text(f'Отзыв #{r["id"]} • {r["created_at"]}\n{r["name"]} (ID {r["user_id"]}) • {r["stars"]}/5\n{r["comment"] or "Без комментария"}')
+
+async def chatid_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID or not ADMIN_ID: return
+    await update.message.reply_text(f"ID этого чата: {update.effective_chat.id}\nДобавьте его в REVIEW_CHAT_ID файла .env и перезапустите сервер uvicorn.")
+
 def main():
     if not TOKEN or TOKEN=="PUT_NEW_BOT_TOKEN_HERE": raise RuntimeError("Укажи BOT_TOKEN в .env")
     init()
@@ -147,6 +189,10 @@ def main():
     app.add_handler(CommandHandler("guests",guests_cmd))
     app.add_handler(CommandHandler("regular",regular_cmd))
     app.add_handler(CommandHandler("guest",guest_cmd))
+    app.add_handler(CommandHandler("find",find_cmd))
+    app.add_handler(CommandHandler("finddate",finddate_cmd))
+    app.add_handler(CommandHandler("reviewsdate",reviewsdate_cmd))
+    app.add_handler(CommandHandler("chatid",chatid_cmd))
     app.add_handler(CommandHandler("reviews",reviews_cmd))
     app.add_handler(CommandHandler("exportguests",export_all_cmd))
     app.add_handler(CommandHandler("exportregular",export_regular_cmd))
