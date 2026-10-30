@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
-from db import init, user, feedback
+from db import init, user, feedback, guest
 load_dotenv()
 init()
 app=FastAPI(docs_url=None,redoc_url=None)
@@ -36,7 +36,8 @@ def index(): return FileResponse(Path(__file__).parent/"web"/"index.html")
 @app.post("/api/me")
 def me(body:Base):
     p=auth(body.initData)
-    return {"name":p.get("first_name","Гость"),"preview":p["id"]==0,"bookingEnabled":False}
+    profile=guest(p["id"]) if p["id"] else None
+    return {"name":p.get("first_name","Гость"),"preview":p["id"]==0,"bookingEnabled":False,"confirmedBookings":profile["bookings"] if profile else 0,"guestStatus":profile["status"] if profile else "Гость"}
 @app.post("/api/review")
 def review(body:Review):
     p=auth(body.initData)
