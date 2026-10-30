@@ -60,6 +60,26 @@ def admin_reviews_api(body:AdminQuery):
     require_admin(body.initData)
     return {"items":admin_review_list(50,body.offset)}
 
+@app.post("/api/admin/export")
+def admin_export_api(body:AdminQuery):
+    require_admin(body.initData)
+    stream=io.StringIO()
+    writer=csv.writer(stream,delimiter=";")
+    writer.writerow(["telegram_id","name","phone","registered_utc","bookings","status"])
+    def safe(value):
+        result=str(value if value is not None else "")
+        return "'"+result if result.lstrip().startswith(("=","+","-","@")) else result
+    offset=0
+    while True:
+        rows=admin_guest_list(body.query,body.date or None,body.regularOnly,200,offset)
+        for entry in rows:
+            writer.writerow([safe(entry[k]) for k in ("id","name","phone","created_at","bookings","status")])
+        if len(rows)<200: break
+        offset+=200
+    filename="regular.csv" if body.regularOnly else "guests.csv"
+    return Response(content=("\\ufeff"+stream.getvalue()).encode("utf-8"),
+       media_type="text/csv",headers={"Content-Disposition":f'attachment; filename="{filename}"',"Cache-Control":"no-store"})
+
 @app.get("/")
 def index(): return FileResponse(Path(__file__).parent/"web"/"index.html")
 @app.post("/api/me")
