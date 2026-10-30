@@ -12,6 +12,10 @@ def connect():
 def init():
     with connect() as c:
         c.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, phone TEXT NOT NULL)")
+        columns={row["name"] for row in c.execute("PRAGMA table_info(users)")}
+        if "created_at" not in columns:
+            c.execute("ALTER TABLE users ADD COLUMN created_at TEXT")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)")
         c.execute("CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, stars INTEGER NOT NULL, comment TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
         c.execute("""
             CREATE TABLE IF NOT EXISTS reservations (
@@ -36,7 +40,7 @@ def save_user(uid, name, phone):
     # Updating a profile must not overwrite booking history.
     with connect() as c:
         c.execute("""
-            INSERT INTO users(id,name,phone) VALUES(?,?,?)
+            INSERT INTO users(id,name,phone,created_at) VALUES(?,?,?,CURRENT_TIMESTAMP)
             ON CONFLICT(id) DO UPDATE SET name=excluded.name, phone=excluded.phone
         """, (uid,name,phone))
 
@@ -54,7 +58,7 @@ def cancel_booking(external_id):
         return cur.rowcount > 0
 
 GUEST_SQL = """
-    SELECT u.id, u.name, u.phone,
+    SELECT u.id, u.name, u.phone, u.created_at,
            COUNT(r.id) AS bookings,
            CASE WHEN COUNT(r.id)>=5 THEN 'Постоянный гость' ELSE 'Гость' END AS status
     FROM users u
@@ -78,3 +82,30 @@ def reviews(limit=30):
             SELECT r.id,r.user_id,u.name,r.stars,r.comment,r.created_at
             FROM reviews r JOIN users u ON u.id=r.user_id
             ORDER BY r.id DESC LIMIT ?""",(limit,)).fetchall()]
+
+def find_guests(query="", registered_date=None, limit=30):
+    """Search on the guest's name, phone, Telegram ID and registration date."""
+    q=query.strip()[:100]
+    if not q and not registered_date:
+        return []
+    clauses=[]
+    args=[]
+    if registered_date:
+        clauses.append("date(u.created_at)=?")
+        args.append(registered_date)
+    if q:
+        # Search literals via instr, so % and _ are not wildcards.
+        clauses.append("(instr(lower(u.name),lower(?))>0 OR instr(u.phone,?)>0 OR CAST(u.id AS TEXT)=?)")
+        args.extend([q,q,q])
+    condition="WHERE "+" AND ".join(clauses)
+    sql=GUEST_SQL.replace("    GROUP BY u.id", "    "+condition+"\n    GROUP BY u.id")
+    with connect() as c:
+        return [dict(row) for row in c.execute(sql+" ORDER BY u.name LIMIT ?",(*args,limit)).fetchall()]
+
+def reviews_by_date(day,limit=30):
+    with connect() as c:
+        return [dict(row) for row in c.execute("""
+            SELECT r.id,r.user_id,u.name,r.stars,r.comment,r.created_at
+            FROM reviews r JOIN users u ON u.id=r.user_id
+            WHERE date(r.created_at)=? ORDER BY r.id DESC LIMIT ?
+        """,(day,limit)).fetchall()]
