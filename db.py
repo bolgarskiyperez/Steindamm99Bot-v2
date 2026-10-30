@@ -109,3 +109,49 @@ def reviews_by_date(day,limit=30):
             FROM reviews r JOIN users u ON u.id=r.user_id
             WHERE date(r.created_at)=? ORDER BY r.id DESC LIMIT ?
         """,(day,limit)).fetchall()]
+
+def admin_guest_list(query="", registered_date=None, regular_only=False, limit=50, offset=0):
+    clauses=[]
+    args=[]
+    if registered_date:
+        clauses.append("date(u.created_at)=?")
+        args.append(registered_date)
+    query=query.strip()
+    if query:
+        clauses.append("(instr(lower(u.name),lower(?))>0 OR instr(u.phone,?)>0 OR CAST(u.id AS TEXT)=?)")
+        args.extend([query,query,query])
+    where=("WHERE "+" AND ".join(clauses)) if clauses else ""
+    sql=f"""
+        SELECT u.id,u.name,u.phone,u.created_at,
+               COUNT(r.id) AS bookings,
+               CASE WHEN COUNT(r.id)>=5 THEN 'Постоянный гость' ELSE 'Гость' END AS status
+        FROM users u
+        LEFT JOIN reservations r ON r.user_id=u.id AND r.status='confirmed'
+        {where}
+        GROUP BY u.id
+        {"HAVING COUNT(r.id)>=5" if regular_only else ""}
+        ORDER BY bookings DESC,u.id DESC
+        LIMIT ? OFFSET ?
+    """
+    with connect() as c:
+        return [dict(row) for row in c.execute(sql,(*args,limit,offset)).fetchall()]
+
+def admin_review_list(limit=50,offset=0):
+    with connect() as c:
+        return [dict(row) for row in c.execute("""
+            SELECT r.id,r.user_id,u.name,r.stars,r.comment,r.created_at
+            FROM reviews r JOIN users u ON u.id=r.user_id
+            ORDER BY r.id DESC LIMIT ? OFFSET ?
+        """,(limit,offset)).fetchall()]
+
+def admin_stats():
+    with connect() as c:
+        registered=c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        total_reviews=c.execute("SELECT COUNT(*) FROM reviews").fetchone()[0]
+        total_bookings=c.execute("SELECT COUNT(*) FROM reservations WHERE status='confirmed'").fetchone()[0]
+        regular=c.execute("""
+            SELECT COUNT(*) FROM (
+                SELECT user_id FROM reservations WHERE status='confirmed'
+                GROUP BY user_id HAVING COUNT(*)>=5
+            )""").fetchone()[0]
+        return {"guests":registered,"regular":regular,"reviews":total_reviews,"confirmedBookings":total_bookings}
