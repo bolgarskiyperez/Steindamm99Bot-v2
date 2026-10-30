@@ -77,7 +77,7 @@ def admin_export_api(body:AdminQuery):
         if len(rows)<200: break
         offset+=200
     filename="regular.csv" if body.regularOnly else "guests.csv"
-    return Response(content=("\\ufeff"+stream.getvalue()).encode("utf-8"),
+    return Response(content=(chr(65279)+stream.getvalue()).encode("utf-8"),
        media_type="text/csv",headers={"Content-Disposition":f'attachment; filename="{filename}"',"Cache-Control":"no-store"})
 
 @app.get("/")
