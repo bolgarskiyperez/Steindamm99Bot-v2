@@ -40,6 +40,16 @@ def auth(init_data):
         return person
     except Exception:
         raise HTTPException(401,"Откройте Mini App через Telegram после отправки номера")
+def require_admin(init_data):
+    person=auth(init_data)
+    if not ADMIN_ID or person["id"]!=ADMIN_ID:
+        raise HTTPException(403,"Доступ только для администратора")
+
+@app.post("/api/admin/stats")
+def admin_stats_api(body:Base):
+    require_admin(body.initData)
+    return admin_stats()
+
 @app.get("/")
 def index(): return FileResponse(Path(__file__).parent/"web"/"index.html")
 @app.post("/api/me")
