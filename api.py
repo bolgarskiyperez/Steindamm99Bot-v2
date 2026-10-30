@@ -1,21 +1,27 @@
-import os, json, hmac, hashlib, time, logging, html
+import os, json, hmac, hashlib, time, logging, html, csv, io
 import httpx
 from pathlib import Path
 from urllib.parse import parse_qsl
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
-from db import init, user, feedback, guest
+from db import init, user, feedback, guest, admin_guest_list, admin_review_list, admin_stats
 load_dotenv()
 init()
 app=FastAPI(docs_url=None,redoc_url=None)
 TOKEN=os.getenv("BOT_TOKEN","")
 LOCAL=os.getenv("LOCAL_PREVIEW")=="1"
 REVIEW_CHAT_ID=os.getenv("REVIEW_CHAT_ID","").strip()
+ADMIN_ID=int(os.getenv("ADMIN_CHAT_ID") or "0")
 logger=logging.getLogger(__name__)
 class Base(BaseModel):
     initData:str=""
+class AdminQuery(Base):
+    query:str=Field(default="",max_length=100)
+    date:str=Field(default="",max_length=10)
+    regularOnly:bool=False
+    offset:int=Field(default=0,ge=0,le=100000)
 class Review(Base):
     stars:int=Field(ge=1,le=5)
     comment:str=Field(default="",max_length=2000)
@@ -40,7 +46,7 @@ def index(): return FileResponse(Path(__file__).parent/"web"/"index.html")
 def me(body:Base):
     p=auth(body.initData)
     profile=guest(p["id"]) if p["id"] else None
-    return {"name":p.get("first_name","Гость"),"preview":p["id"]==0,"bookingEnabled":False,"confirmedBookings":profile["bookings"] if profile else 0,"guestStatus":profile["status"] if profile else "Гость"}
+    return {"name":p.get("first_name","Гость"),"preview":p["id"]==0,"bookingEnabled":False,"confirmedBookings":profile["bookings"] if profile else 0,"guestStatus":profile["status"] if profile else "Гость","isAdmin":bool(ADMIN_ID and p["id"]==ADMIN_ID)}
 @app.post("/api/review")
 async def review(body:Review):
     p=auth(body.initData)
