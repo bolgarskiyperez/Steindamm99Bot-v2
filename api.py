@@ -51,10 +51,10 @@ async def review(body:Review):
         profile=user(p["id"]) or {}
         guest_name=html.escape(profile.get("name") or p.get("first_name") or "Гость")
         comment=html.escape(body.comment.strip() or "Без комментария")
-        message=(f"⭐ <b>Новый отзыв Steindamm 99</b>\\n"
-                 f"Гость: {guest_name}\\n"
-                 f"Оценка: {body.stars}/5\\n"
-                 f"Telegram ID: <code>{p['id']}</code>\\n\\n"
+        message=(f"⭐ <b>Новый отзыв Steindamm 99</b>\n"
+                 f"Гость: {guest_name}\n"
+                 f"Оценка: {body.stars}/5\n"
+                 f"Telegram ID: <code>{p['id']}</code>\n\n"
                  f"{comment}")
         try:
             async with httpx.AsyncClient(timeout=8) as client:
