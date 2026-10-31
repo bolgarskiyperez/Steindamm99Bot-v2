@@ -1,5 +1,6 @@
 import os, json, hmac, hashlib, time, logging, html, csv, io
 import httpx
+from access import allowed, role
 from pathlib import Path
 from urllib.parse import parse_qsl
 from fastapi import FastAPI, HTTPException
@@ -13,7 +14,7 @@ app=FastAPI(docs_url=None,redoc_url=None)
 TOKEN=os.getenv("BOT_TOKEN","")
 LOCAL=os.getenv("LOCAL_PREVIEW")=="1"
 REVIEW_CHAT_ID=os.getenv("REVIEW_CHAT_ID","").strip()
-ADMIN_ID=int(os.getenv("ADMIN_CHAT_ID") or "0")
+
 logger=logging.getLogger(__name__)
 class Base(BaseModel):
     initData:str=""
@@ -40,9 +41,9 @@ def auth(init_data):
         return person
     except Exception:
         raise HTTPException(401,"Откройте Mini App через Telegram после отправки номера")
-def require_admin(init_data):
+def require_admin(init_data,need="manager"):
     person=auth(init_data)
-    if not ADMIN_ID or person["id"]!=ADMIN_ID:
+    if not allowed(person["id"],need):
         raise HTTPException(403,"Доступ только для администратора")
 
 @app.post("/api/admin/stats")
@@ -62,7 +63,7 @@ def admin_reviews_api(body:AdminQuery):
 
 @app.post("/api/admin/export")
 def admin_export_api(body:AdminQuery):
-    require_admin(body.initData)
+    require_admin(body.initData,"admin")
     stream=io.StringIO()
     writer=csv.writer(stream,delimiter=";")
     writer.writerow(["telegram_id","name","phone","registered_utc","bookings","status"])
@@ -131,7 +132,7 @@ def index(): return FileResponse(Path(__file__).parent/"web"/"index.html")
 def me(body:Base):
     p=auth(body.initData)
     profile=guest(p["id"]) if p["id"] else None
-    return {"name":p.get("first_name","Гость"),"preview":p["id"]==0,"bookingEnabled":False,"confirmedBookings":profile["bookings"] if profile else 0,"guestStatus":profile["status"] if profile else "Гость","isAdmin":bool(ADMIN_ID and p["id"]==ADMIN_ID)}
+    return {"name":p.get("first_name","Гость"),"preview":p["id"]==0,"bookingEnabled":False,"confirmedBookings":profile["bookings"] if profile else 0,"guestStatus":profile["status"] if profile else "Гость","isAdmin":allowed(p["id"]),"adminRole":role(p["id"])}
 @app.post("/api/review")
 async def review(body:Review):
     p=auth(body.initData)
