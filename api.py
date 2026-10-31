@@ -80,6 +80,42 @@ def admin_export_api(body:AdminQuery):
     return Response(content=(chr(65279)+stream.getvalue()).encode("utf-8"),
        media_type="text/csv",headers={"Content-Disposition":f'attachment; filename="{filename}"',"Cache-Control":"no-store"})
 
+
+# Optional single-process mode for one small demo web service.
+# On local Windows run bot.py and uvicorn separately as before.
+polling_application=None
+
+@app.on_event("startup")
+async def start_embedded_bot():
+    global polling_application
+    if os.getenv("RUN_BOT_IN_API")!="1":
+        return
+    from bot import build_application
+    application=build_application()
+    await application.initialize()
+    try:
+        await application.start()
+        await application.updater.start_polling(drop_pending_updates=True)
+    except Exception:
+        await application.stop()
+        await application.shutdown()
+        raise
+    polling_application=application
+
+@app.on_event("shutdown")
+async def stop_embedded_bot():
+    global polling_application
+    if polling_application is None:
+        return
+    await polling_application.updater.stop()
+    await polling_application.stop()
+    await polling_application.shutdown()
+    polling_application=None
+
+@app.get("/health")
+def health():
+    return {"ok":True}
+
 @app.get("/")
 def index(): return FileResponse(Path(__file__).parent/"web"/"index.html")
 @app.post("/api/me")
