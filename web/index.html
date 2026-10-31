@@ -15,7 +15,7 @@
 <label class="tiny" for="adminDate">Дата регистрации (необязательно, UTC)</label>
 <input id="adminDate" class="admin-field" type="date">
 <label class="admin-row"><input id="adminRegular" type="checkbox"> Только постоянные гости (5+ броней)</label>
-<div class="admin-row"><button onclick="loadGuests(true)">Найти</button><button onclick="exportGuests()">Скачать CSV</button></div>
+<div class="admin-row"><button onclick="loadGuests(true)">Найти</button><button id="adminExport" onclick="exportGuests()" style="display:none">Скачать CSV</button></div>
 <div id="adminResults"></div>
 <div class="admin-row"><button id="guestMore" style="display:none" onclick="loadGuests(false)">Показать ещё гостей</button></div>
 <h3>Последние отзывы</h3>
@@ -36,7 +36,7 @@ function draw(){document.getElementById("stars").innerHTML=[1,2,3,4,5].map(n=>'<
 function rate(n){rating=n;draw()}draw();
 async function request(path,data){const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({initData,...data})});const j=await r.json();if(!r.ok)throw Error(j.detail||"Ошибка");return j}
 async function sendReview(){if(!rating){document.getElementById("status").textContent="Выберите оценку";return}try{const r=await request("/api/review",{stars:rating,comment:document.getElementById("comment").value});document.getElementById("status").textContent=r.preview?"Тестовый отзыв: отправка работает":"Спасибо за отзыв!";back()}catch(e){document.getElementById("status").textContent=e.message}}
-request("/api/me",{}).then(p=>{document.getElementById("hello").textContent="Здравствуйте, "+p.name+"!";if(p.isAdmin)document.getElementById("adminEntry").style.display="block"}).catch(e=>{document.getElementById("status").textContent=e.message})
+request("/api/me",{}).then(p=>{document.getElementById("hello").textContent="Здравствуйте, "+p.name+"!";if(p.isAdmin){document.getElementById("adminEntry").style.display="block";document.getElementById("adminExport").style.display=p.adminRole==="admin"?"block":"none"}}).catch(e=>{document.getElementById("status").textContent=e.message})
 
 function safeText(v){return String(v??"")}
 function element(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=safeText(txt);return e}
