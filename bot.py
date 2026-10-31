@@ -12,6 +12,13 @@ load_dotenv()
 TOKEN=os.getenv("BOT_TOKEN","")
 URL=os.getenv("WEBAPP_URL","").strip()
 PRIVACY=os.getenv("PRIVACY_URL","").strip()
+BASE_URL=URL.rstrip("/") if URL.startswith("https://") else ""
+def docs_text():
+    if not BASE_URL:
+        return "Документы доступны после настройки WEBAPP_URL."
+    return ("Документы для ознакомления (проекты, ещё не утверждены):\n"
+            f"Политика: {BASE_URL}/legal/privacy\n"
+            f"Согласие: {BASE_URL}/legal/consent")
 ADMIN_ID=int(os.getenv("ADMIN_CHAT_ID") or "0")
 def contact_keyboard():
     return ReplyKeyboardMarkup([[KeyboardButton("📱 Поделиться номером",request_contact=True)]],resize_keyboard=True)
@@ -19,11 +26,11 @@ async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if user(update.effective_user.id):
         return await menu(update)
     text="Добро пожаловать в Steindamm 99!\n\nДля продолжения поделитесь номером телефона кнопкой ниже."
-    if PRIVACY:
-        text+="\n\nПолитика обработки персональных данных: "+PRIVACY
-    else:
-        text+="\n\n⚠️ Политика обработки данных пока не настроена. Не запускайте бота для гостей."
+    text+="\n\n"+docs_text()+"\n\n⚠️ Документы пока на согласовании. Бот предназначен только для тестирования."
     await update.message.reply_text(text,reply_markup=contact_keyboard())
+async def documents(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(docs_text())
+
 async def menu(update):
     if not user(update.effective_user.id):
         return await start(update,None)
@@ -185,6 +192,7 @@ def build_application():
     init()
     app=Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start",start))
+    app.add_handler(CommandHandler("documents",documents))
     app.add_handler(CommandHandler("admin",admin))
     app.add_handler(CommandHandler("guests",guests_cmd))
     app.add_handler(CommandHandler("regular",regular_cmd))
