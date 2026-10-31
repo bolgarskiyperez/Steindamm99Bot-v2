@@ -4,6 +4,7 @@ import io
 import sqlite3
 from datetime import date
 from telegram import InputFile
+from access import allowed, role
 from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
@@ -19,7 +20,7 @@ def docs_text():
     return ("Документы для ознакомления (проекты, ещё не утверждены):\n"
             f"Политика: {BASE_URL}/legal/privacy\n"
             f"Согласие: {BASE_URL}/legal/consent")
-ADMIN_ID=int(os.getenv("ADMIN_CHAT_ID") or "0")
+
 def contact_keyboard():
     return ReplyKeyboardMarkup([[KeyboardButton("📱 Поделиться номером",request_contact=True)]],resize_keyboard=True)
 async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
@@ -50,26 +51,31 @@ async def message(update:Update, context:ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text("Отправьте номер кнопкой «Поделиться номером», а не текстом.",reply_markup=contact_keyboard())
     await menu(update)
 
-def authorized(update):
-    return bool(ADMIN_ID and update.effective_user.id == ADMIN_ID and update.effective_chat.id == ADMIN_ID)
+def authorized(update, need="manager"):
+    return bool(update.effective_chat.type=="private" and allowed(update.effective_user.id,need))
 
 async def admin(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if not authorized(update): return
-    await update.message.reply_text(
+    msg=(
         "Управление гостями:\n"
-        "/guests — количество гостей и постоянных гостей\n"
-        "/regular — список постоянных гостей\n"
-        "/guest ID — карточка гостя по Telegram ID\n"
-        "/find ЗАПРОС — поиск по имени, телефону, ID\n"
-        "/finddate ГГГГ-ММ-ДД — поиск по регистрации\n"
-        "/reviewsdate ГГГГ-ММ-ДД — отзывы за день\n"
+        "/guests — статистика\n"
+        "/regular — постоянные гости\n"
+        "/guest ID — карточка гостя\n"
+        "/find ЗАПРОС — имя, телефон или ID\n"
+        "/finddate ГГГГ-ММ-ДД — дата регистрации\n"
         "/reviews — последние отзывы\n"
-        "/exportguests — выгрузка CSV всех гостей\n"
-        "/exportregular — выгрузка CSV постоянных гостей\n"
-        "/addbooking ID НОМЕР — учесть подтверждённую бронь из Restoplace\n"
-        "/cancelbooking НОМЕР — отменить учтённую бронь\n\n"
-        "Данные доступны только администратору. Не пересылайте выгрузку посторонним."
+        "/reviewsdate ГГГГ-ММ-ДД — отзывы за день\n"
     )
+    if authorized(update,"admin"):
+        msg+=(
+            "/exportguests — CSV всех гостей\n"
+            "/exportregular — CSV постоянных гостей\n"
+            "/addbooking ID НОМЕР — учесть бронь\n"
+            "/cancelbooking НОМЕР — отменить бронь\n"
+            "/chatid — ID группы для уведомлений\n"
+        )
+    msg+="\nРоль: "+("Администратор" if role(update.effective_user.id)=="admin" else "Менеджер")
+    await update.message.reply_text(msg)
 
 async def guests_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if not authorized(update): return
@@ -107,7 +113,7 @@ def safe_csv_cell(value):
     return value
 
 async def export_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE, regular_only=False):
-    if not authorized(update): return
+    if not authorized(update,"admin"): return
     data=guests(regular_only)
     out=io.StringIO()
     writer=csv.writer(out,delimiter=";")
@@ -126,7 +132,7 @@ async def export_regular_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
     await export_cmd(update,context,True)
 
 async def addbooking_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if not authorized(update): return
+    if not authorized(update,"admin"): return
     if len(context.args)!=2 or not context.args[0].isdigit():
         return await update.message.reply_text("Формат: /addbooking TELEGRAM_ID ID_БРОНИ_RESTOPLACE\nДобавляйте только реально подтверждённые брони.")
     uid=int(context.args[0])
@@ -143,7 +149,7 @@ async def addbooking_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f'Бронь учтена. У гостя {g["bookings"]} подтверждённых броней. Статус: {g["status"]}.')
 
 async def cancelbooking_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if not authorized(update): return
+    if not authorized(update,"admin"): return
     if len(context.args)!=1:
         return await update.message.reply_text("Формат: /cancelbooking ID_БРОНИ_RESTOPLACE")
     ok=cancel_booking(context.args[0])
@@ -184,7 +190,7 @@ async def reviewsdate_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f'Отзыв #{r["id"]} • {r["created_at"]}\n{r["name"]} (ID {r["user_id"]}) • {r["stars"]}/5\n{r["comment"] or "Без комментария"}')
 
 async def chatid_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID or not ADMIN_ID: return
+    if not allowed(update.effective_user.id,"admin"): return
     await update.message.reply_text(f"ID этого чата: {update.effective_chat.id}\nДобавьте его в REVIEW_CHAT_ID файла .env и перезапустите сервер uvicorn.")
 
 def build_application():
