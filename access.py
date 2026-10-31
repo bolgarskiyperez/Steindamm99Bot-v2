@@ -1,5 +1,7 @@
 """Shared, server-enforced access roles for the bot and Mini App."""
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 def parse_ids(name):
     result=set()
