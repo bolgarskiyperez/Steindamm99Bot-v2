@@ -22,7 +22,14 @@ def docs_text():
             f"Согласие: {BASE_URL}/legal/consent")
 
 def contact_keyboard():
-    return ReplyKeyboardMarkup([[KeyboardButton("📱 Поделиться номером",request_contact=True)]],resize_keyboard=True)
+    return ReplyKeyboardMarkup([[KeyboardButton("📱 Поделиться номером",request_contact=True)]],resize_keyboard=True,one_time_keyboard=False)
+
+def home_keyboard():
+    # Telegram WebApp reply buttons work in private chats and remain available.
+    return ReplyKeyboardMarkup([
+        [KeyboardButton("🍽 Открыть приложение",web_app=WebAppInfo(url=URL))],
+        [KeyboardButton("📄 Документы")],
+    ],resize_keyboard=True,is_persistent=True)
 async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if user(update.effective_user.id):
         return await menu(update)
@@ -37,18 +44,22 @@ async def menu(update):
         return await start(update,None)
     if not URL.startswith("https://"):
         return await update.message.reply_text("Номер сохранён. Для запуска Mini App укажи публичный HTTPS-адрес WEBAPP_URL в .env.")
-    kb=InlineKeyboardMarkup([[InlineKeyboardButton("🍽 Открыть приложение",web_app=WebAppInfo(url=URL))]])
-    await update.message.reply_text("Откройте приложение ресторана:",reply_markup=kb)
+    await update.message.reply_text(
+        "Приложение Steindamm 99 всегда доступно по кнопке внизу чата 👇",
+        reply_markup=home_keyboard()
+    )
 async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
     data=update.message.contact
     if data.user_id != update.effective_user.id:
         return await update.message.reply_text("Пожалуйста, поделитесь собственным номером кнопкой ниже.",reply_markup=contact_keyboard())
     save_user(update.effective_user.id,update.effective_user.full_name,data.phone_number)
-    await update.message.reply_text("Спасибо! Номер сохранён.",reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Спасибо! Номер сохранён.")
     await menu(update)
 async def message(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if not user(update.effective_user.id):
         return await update.message.reply_text("Отправьте номер кнопкой «Поделиться номером», а не текстом.",reply_markup=contact_keyboard())
+    if (update.message.text or "").strip()=="📄 Документы":
+        return await documents(update,context)
     await menu(update)
 
 def authorized(update, need="manager"):
