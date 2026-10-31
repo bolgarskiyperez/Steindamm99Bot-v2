@@ -180,7 +180,7 @@ async def chatid_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID or not ADMIN_ID: return
     await update.message.reply_text(f"ID этого чата: {update.effective_chat.id}\nДобавьте его в REVIEW_CHAT_ID файла .env и перезапустите сервер uvicorn.")
 
-def main():
+def build_application():
     if not TOKEN or TOKEN=="PUT_NEW_BOT_TOKEN_HERE": raise RuntimeError("Укажи BOT_TOKEN в .env")
     init()
     app=Application.builder().token(TOKEN).build()
@@ -200,5 +200,9 @@ def main():
     app.add_handler(CommandHandler("cancelbooking",cancelbooking_cmd))
     app.add_handler(MessageHandler(filters.CONTACT,contact))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,message))
-    app.run_polling(drop_pending_updates=True)
+    return app
+
+def main():
+    build_application().run_polling(drop_pending_updates=True)
+
 if __name__=="__main__": main()
