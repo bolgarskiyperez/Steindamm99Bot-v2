@@ -121,6 +121,7 @@ def legal_consent():
     return FileResponse(Path(__file__).parent/"web"/"consent.html")
 
 @app.get("/health")
+@app.head("/health")
 def health():
     return {"ok":True}
 
