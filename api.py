@@ -112,6 +112,14 @@ async def stop_embedded_bot():
     await polling_application.shutdown()
     polling_application=None
 
+@app.get("/legal/privacy")
+def legal_privacy():
+    return FileResponse(Path(__file__).parent/"web"/"privacy.html")
+
+@app.get("/legal/consent")
+def legal_consent():
+    return FileResponse(Path(__file__).parent/"web"/"consent.html")
+
 @app.get("/health")
 def health():
     return {"ok":True}
