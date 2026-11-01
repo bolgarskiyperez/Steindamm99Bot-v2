@@ -15,7 +15,7 @@ URL=os.getenv("WEBAPP_URL","").strip()
 PRIVACY=os.getenv("PRIVACY_URL","").strip()
 BASE_URL=URL.rstrip("/") if URL.startswith("https://") else ""
 # Changing the Mini App URL invalidates Telegram WebView cache after deployments.
-WEBAPP_LAUNCH_URL=BASE_URL+"/app-mobile-20261101" if BASE_URL else URL
+WEBAPP_LAUNCH_URL=BASE_URL+"/app-admin-20261101-v2" if BASE_URL else URL
 def docs_text():
     if not BASE_URL:
         return "Документы доступны после настройки WEBAPP_URL."
