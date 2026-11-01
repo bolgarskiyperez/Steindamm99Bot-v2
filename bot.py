@@ -6,7 +6,7 @@ from datetime import date
 from telegram import InputFile
 from access import allowed, role
 from dotenv import load_dotenv
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, MenuButtonWebApp
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from db import init, user, save_user, guests, guest, reviews, add_verified_booking, cancel_booking, find_guests, reviews_by_date
 load_dotenv()
@@ -29,10 +29,30 @@ def contact_keyboard():
 def home_keyboard():
     # Telegram WebApp reply buttons work in private chats and remain available.
     return ReplyKeyboardMarkup([
-        [KeyboardButton("🍽 Открыть приложение",web_app=WebAppInfo(url=WEBAPP_LAUNCH_URL))],
+        [KeyboardButton("🍽 Открыть приложение")],
         [KeyboardButton("📱 Поделиться номером",request_contact=True)],
         [KeyboardButton("📄 Документы")],
     ],resize_keyboard=True,is_persistent=True)
+async def configure_menu(app):
+    if WEBAPP_LAUNCH_URL.startswith("https://"):
+        await app.bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="🍽 Открыть приложение",
+                web_app=WebAppInfo(url=WEBAPP_LAUNCH_URL)
+            )
+        )
+
+async def open_inline(update:Update):
+    if not WEBAPP_LAUNCH_URL.startswith("https://"):
+        return await update.message.reply_text("Приложение пока не настроено.")
+    await update.message.reply_text(
+        "Steindamm 99",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🍽 Открыть приложение",
+                web_app=WebAppInfo(url=WEBAPP_LAUNCH_URL))
+        ]])
+    )
+
 async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if user(update.effective_user.id) or allowed(update.effective_user.id):
         return await menu(update)
@@ -62,7 +82,7 @@ async def menu(update):
     if not URL.startswith("https://"):
         return await update.message.reply_text("Номер сохранён. Для запуска Mini App укажи публичный HTTPS-адрес WEBAPP_URL в .env.")
     await update.message.reply_text(
-        "Откройте приложение Steindamm 99 👇",
+        "Откройте приложение через кнопку «Меню» или «🍽 Открыть приложение» ниже.",
         reply_markup=home_keyboard()
     )
 
@@ -101,6 +121,8 @@ async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
 async def message(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if not user(update.effective_user.id) and not allowed(update.effective_user.id):
         return await update.message.reply_text("Отправьте номер кнопкой «Поделиться номером», а не текстом.",reply_markup=contact_keyboard())
+    if (update.message.text or "").strip()=="🍽 Открыть приложение":
+        return await open_inline(update)
     if (update.message.text or "").strip()=="📄 Документы":
         return await documents(update,context)
     await menu(update)
@@ -296,7 +318,7 @@ async def chatid_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
 def build_application():
     if not TOKEN or TOKEN=="PUT_NEW_BOT_TOKEN_HERE": raise RuntimeError("Укажи BOT_TOKEN в .env")
     init()
-    app=Application.builder().token(TOKEN).build()
+    app=Application.builder().token(TOKEN).post_init(configure_menu).build()
     app.add_handler(CommandHandler("start",start))
     app.add_handler(CommandHandler("documents",documents))
     app.add_handler(CommandHandler("contactstatus",contactstatus))
