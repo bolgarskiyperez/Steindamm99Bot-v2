@@ -134,6 +134,10 @@ def version():
 def health():
     return {"ok":True}
 
+@app.get("/app-restored-20261101")
+def restored_guest_app():
+    return FileResponse(Path(__file__).parent/"web"/"index.html",headers={"Cache-Control":"no-store, max-age=0"})
+
 @app.get("/app-contact-status-v3")
 def contact_status_v3():
     return FileResponse(Path(__file__).parent/"web"/"index.html",headers={"Cache-Control":"no-store, max-age=0"})
