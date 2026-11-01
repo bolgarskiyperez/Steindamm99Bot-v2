@@ -47,16 +47,10 @@ async def menu(update):
     if not URL.startswith("https://"):
         return await update.message.reply_text("Номер сохранён. Для запуска Mini App укажи публичный HTTPS-адрес WEBAPP_URL в .env.")
     await update.message.reply_text(
-        "Приложение Steindamm 99 всегда доступно по кнопке внизу чата 👇",
+        "Откройте приложение Steindamm 99 👇",
         reply_markup=home_keyboard()
     )
-    # Separate inline button refreshes WebApp launch even when an old reply keyboard is cached.
-    await update.message.reply_text(
-        "Если Telegram открывал старую версию приложения, откройте новую здесь:",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("🔄 Открыть обновлённое приложение",web_app=WebAppInfo(url=WEBAPP_LAUNCH_URL))
-        ]])
-    )
+
 async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
     data=update.message.contact
     if data.user_id != update.effective_user.id:
