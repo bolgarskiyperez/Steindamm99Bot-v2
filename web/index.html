@@ -35,7 +35,20 @@ function back(){document.getElementById("home").style.display="block";document.g
 function draw(){document.getElementById("stars").innerHTML=[1,2,3,4,5].map(n=>'<button class="'+(n<=rating?'selected':'')+'" onclick="rate('+n+')">★</button>').join("")}
 function rate(n){rating=n;draw()}draw();
 async function request(path,data){const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({initData,...data})});const j=await r.json();if(!r.ok)throw Error(j.detail||"Ошибка");return j}
-async function sendReview(){if(!rating){document.getElementById("status").textContent="Выберите оценку";return}try{const r=await request("/api/review",{stars:rating,comment:document.getElementById("comment").value});document.getElementById("status").textContent=r.preview?"Тестовый отзыв: отправка работает":"Отзыв сохранён. Если он не пришёл в чат сотрудников, проверьте настройки уведомлений.";back()}catch(e){document.getElementById("status").textContent=e.message}}
+async function sendReview(){
+  if(!rating){document.getElementById("status").textContent="Выберите оценку";return}
+  try{
+    const r=await request("/api/review",{stars:rating,comment:document.getElementById("comment").value});
+    back();
+    document.getElementById("status").textContent=r.preview
+      ?"Тестовый отзыв: отправка в чат не выполняется."
+      :r.notificationDelivered
+      ?"Спасибо! Отзыв сохранён и отправлен сотрудникам."
+      :"Отзыв сохранён, но сообщение сотрудникам НЕ доставлено. "+(r.notificationError||"Проверьте настройки уведомлений.");
+  }catch(e){
+    document.getElementById("status").textContent="Отзыв не отправлен: "+e.message;
+  }
+}
 request("/api/me",{}).then(p=>{
   document.getElementById("hello").textContent="Здравствуйте, "+p.name+"!";
   document.getElementById("adminExport").style.display=p.adminRole==="admin"?"block":"none";
