@@ -157,9 +157,11 @@ def me(body:Base):
     return {"name":p.get("first_name","Гость"),"contactShared":registered,"preview":p["id"]==0,"bookingEnabled":False,"confirmedBookings":profile["bookings"] if profile else 0,"guestStatus":profile["status"] if profile else "Гость","isAdmin":allowed(p["id"]),"adminRole":role(p["id"])}
 @app.post("/api/review")
 async def review(body:Review):
-    p=auth(body.initData)
+    p=auth(body.initData, require_registration=False)
     if p["id"]==0:
         return {"ok":True,"preview":True,"notificationDelivered":False}
+    if not user(p["id"]):
+        raise HTTPException(status_code=409,detail="Номер не найден в базе. Поделитесь номером повторно.")
     feedback(p["id"],body.stars,body.comment)
     if not REVIEW_CHAT_ID or not TOKEN:
         logger.error("Review stored without notification: missing chat ID or bot token")
