@@ -15,7 +15,7 @@ URL=os.getenv("WEBAPP_URL","").strip()
 PRIVACY=os.getenv("PRIVACY_URL","").strip()
 BASE_URL=URL.rstrip("/") if URL.startswith("https://") else ""
 # Changing the Mini App URL invalidates Telegram WebView cache after deployments.
-WEBAPP_LAUNCH_URL=URL+("&" if "?" in URL else "?")+"v=20261101-mobile-fix" if URL.startswith("https://") else URL
+WEBAPP_LAUNCH_URL=BASE_URL+"/app-mobile-20261101" if BASE_URL else URL
 def docs_text():
     if not BASE_URL:
         return "Документы доступны после настройки WEBAPP_URL."
@@ -209,6 +209,36 @@ async def reviewsdate_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
     for r in found:
         await update.message.reply_text(f'Отзыв #{r["id"]} • {r["created_at"]}\n{r["name"]} (ID {r["user_id"]}) • {r["stars"]}/5\n{r["comment"] or "Без комментария"}')
 
+async def testreview_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if not authorized(update,"admin"): return
+    chat_id=os.getenv("REVIEW_CHAT_ID","").strip()
+    if not chat_id:
+        return await update.message.reply_text("Ошибка: REVIEW_CHAT_ID не настроен на Render.")
+    try:
+        sent=await context.bot.send_message(
+            chat_id=chat_id,
+            text="✅ Тест доставки Steindamm 99. Бот может отправлять сообщения в этот чат."
+        )
+        await update.message.reply_text(f"Тестовое сообщение отправлено в чат. Message ID: {sent.message_id}")
+    except Exception as error:
+        await update.message.reply_text(
+            "Ошибка отправки в чат отзывов: "+str(error)[:350]+
+            "\nПроверьте REVIEW_CHAT_ID и права бота в группе или канале."
+        )
+
+async def open_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if not user(update.effective_user.id) and not allowed(update.effective_user.id):
+        return await start(update,context)
+    if not BASE_URL:
+        return await update.message.reply_text("Не настроен WEBAPP_URL.")
+    await update.message.reply_text(
+        "Новая версия Mini App:",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🍽 Открыть Mini App (новая версия)",
+                web_app=WebAppInfo(url=WEBAPP_LAUNCH_URL))
+        ]])
+    )
+
 async def diag_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if not authorized(update,"admin"): return
     review_id=os.getenv("REVIEW_CHAT_ID","").strip()
@@ -244,6 +274,8 @@ def build_application():
     app.add_handler(CommandHandler("reviewsdate",reviewsdate_cmd))
     app.add_handler(CommandHandler("chatid",chatid_cmd))
     app.add_handler(CommandHandler("diag",diag_cmd))
+    app.add_handler(CommandHandler("testreview",testreview_cmd))
+    app.add_handler(CommandHandler("open",open_cmd))
     app.add_handler(CommandHandler("reviews",reviews_cmd))
     app.add_handler(CommandHandler("exportguests",export_all_cmd))
     app.add_handler(CommandHandler("exportregular",export_regular_cmd))
