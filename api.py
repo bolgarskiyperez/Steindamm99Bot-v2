@@ -1,5 +1,6 @@
 import os, json, hmac, hashlib, time, logging, html, csv, io
 import httpx
+from telegram import Bot
 from access import allowed, role
 from pathlib import Path
 from urllib.parse import parse_qsl
@@ -148,33 +149,31 @@ def me(body:Base):
 @app.post("/api/review")
 async def review(body:Review):
     p=auth(body.initData)
-    if p["id"]==0:return {"ok":True,"preview":True}
+    if p["id"]==0:
+        return {"ok":True,"preview":True,"notificationDelivered":False}
     feedback(p["id"],body.stars,body.comment)
-    # Delivery is best-effort: a Telegram failure must never lose the saved review.
-    if not REVIEW_CHAT_ID:
-        logger.error("Review was stored, but REVIEW_CHAT_ID is not configured")
-    elif not TOKEN:
-        logger.error("Review was stored, but BOT_TOKEN is not configured")
-    else:
-        profile=user(p["id"]) or {}
-        guest_name=html.escape(profile.get("name") or p.get("first_name") or "Гость")
-        comment=html.escape(body.comment.strip() or "Без комментария")
-        message=(f"⭐ <b>Новый отзыв Steindamm 99</b>\n"
-                 f"Гость: {guest_name}\n"
-                 f"Оценка: {body.stars}/5\n"
-                 f"Telegram ID: <code>{p['id']}</code>\n\n"
-                 f"{comment}")
-        try:
-            async with httpx.AsyncClient(timeout=8) as client:
-                response=await client.post(
-                    f"https://api.telegram.org/bot{TOKEN}/sendMessage",
-                    json={"chat_id":REVIEW_CHAT_ID,"text":message,"parse_mode":"HTML","disable_web_page_preview":True},
-                )
-                response.raise_for_status()
-                if not response.json().get("ok"): raise RuntimeError("Telegram sendMessage returned not ok")
-        except Exception:
-            logger.exception("Review stored but Telegram notification was not delivered, chat configured=%s",bool(REVIEW_CHAT_ID))
-    return {"ok":True}
+    if not REVIEW_CHAT_ID or not TOKEN:
+        logger.error("Review stored without notification: missing chat ID or bot token")
+        return {"ok":True,"notificationDelivered":False,"notificationError":"Уведомления не настроены на сервере"}
+
+    profile=user(p["id"]) or {}
+    guest_name=profile.get("name") or p.get("first_name") or "Гость"
+    comment=body.comment.strip() or "Без комментария"
+    message=(f"⭐ Новый отзыв Steindamm 99\n"
+             f"Гость: {guest_name}\n"
+             f"Оценка: {body.stars}/5\n"
+             f"Telegram ID: {p['id']}\\n\n"
+             f"{comment}")
+    try:
+        # Use the same Telegram Bot API client as the working /testreview command.
+        async with Bot(token=TOKEN) as client:
+            await client.send_message(chat_id=REVIEW_CHAT_ID,text=message)
+        return {"ok":True,"notificationDelivered":True}
+    except Exception as exc:
+        logger.exception("Review stored but sending staff notification failed")
+        return {"ok":True,"notificationDelivered":False,
+                "notificationError":"Telegram не принял уведомление. Проверьте журнал Render."}
+
 @app.post("/api/booking")
 def booking(body:Base):
     auth(body.initData)
