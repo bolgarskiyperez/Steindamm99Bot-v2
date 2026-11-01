@@ -162,7 +162,7 @@ async def review(body:Review):
     message=(f"⭐ Новый отзыв Steindamm 99\n"
              f"Гость: {guest_name}\n"
              f"Оценка: {body.stars}/5\n"
-             f"Telegram ID: {p['id']}\\n\n"
+             f"Telegram ID: {p['id']}\n\n"
              f"{comment}")
     try:
         # Use the same Telegram Bot API client as the working /testreview command.
