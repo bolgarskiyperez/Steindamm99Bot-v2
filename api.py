@@ -95,10 +95,11 @@ async def start_embedded_bot():
     global polling_application
     if os.getenv("RUN_BOT_IN_API")!="1":
         return
-    from bot import build_application
+    from bot import build_application, configure_menu
     application=build_application()
     await application.initialize()
     try:
+        await configure_menu(application)
         await application.start()
         await application.updater.start_polling(drop_pending_updates=True)
     except Exception:
