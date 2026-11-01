@@ -39,6 +39,20 @@ async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
     text="Добро пожаловать в Steindamm 99!\n\nДля продолжения поделитесь номером телефона кнопкой ниже."
     text+="\n\n"+docs_text()+"\n\n⚠️ Документы пока на согласовании. Бот предназначен только для тестирования."
     await update.message.reply_text(text,reply_markup=contact_keyboard())
+async def contactstatus(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    saved=user(update.effective_user.id)
+    if saved:
+        await update.message.reply_text(
+            "✅ Номер найден в базе. Можно открыть приложение.\\n"
+            "Если Mini App продолжает просить номер, закройте его полностью и откройте снова.",
+            reply_markup=home_keyboard() if URL.startswith("https://") else None
+        )
+    else:
+        await update.message.reply_text(
+            "Номер в текущей базе не найден. Поделитесь контактом ещё раз кнопкой ниже.",
+            reply_markup=contact_keyboard()
+        )
+
 async def documents(update:Update, context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(docs_text())
 
@@ -58,6 +72,9 @@ async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text("Пожалуйста, поделитесь собственным номером кнопкой ниже.",reply_markup=contact_keyboard())
     previous=user(update.effective_user.id)
     save_user(update.effective_user.id,update.effective_user.full_name,data.phone_number)
+    saved=user(update.effective_user.id)
+    if not saved:
+        return await update.message.reply_text("Ошибка сохранения контакта. Попробуйте ещё раз.",reply_markup=contact_keyboard())
     review_chat=os.getenv("REVIEW_CHAT_ID","").strip()
     if review_chat and (not previous or previous.get("phone")!=data.phone_number):
         try:
@@ -79,7 +96,7 @@ async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
         except Exception:
             import logging
             logging.getLogger(__name__).exception("Failed to notify staff of new contact")
-    await update.message.reply_text("Спасибо! Номер сохранён.")
+    await update.message.reply_text("Спасибо! Номер сохранён. Теперь можно открыть приложение.")
     await menu(update)
 async def message(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if not user(update.effective_user.id) and not allowed(update.effective_user.id):
@@ -282,6 +299,7 @@ def build_application():
     app=Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start",start))
     app.add_handler(CommandHandler("documents",documents))
+    app.add_handler(CommandHandler("contactstatus",contactstatus))
     app.add_handler(CommandHandler("admin",admin))
     app.add_handler(CommandHandler("guests",guests_cmd))
     app.add_handler(CommandHandler("regular",regular_cmd))
