@@ -28,7 +28,7 @@ class AdminQuery(Base):
 class Review(Base):
     stars:int=Field(ge=1,le=5)
     comment:str=Field(default="",max_length=2000)
-def auth(init_data):
+def auth(init_data, require_registration=True):
     if LOCAL and not init_data: return {"id":0,"first_name":"Тестовый гость"}
     try:
         data=dict(parse_qsl(init_data,keep_blank_values=True))
@@ -41,7 +41,7 @@ def auth(init_data):
         person=json.loads(data["user"])
         # Staff roles are configured in environment variables. Their access must not
         # depend on a guest row in ephemeral SQLite storage on Render Free.
-        if not allowed(person["id"]) and not user(person["id"]): raise ValueError()
+        if require_registration and not allowed(person["id"]) and not user(person["id"]): raise ValueError()
         return person
     except Exception:
         raise HTTPException(401,"Откройте Mini App через Telegram после отправки номера")
@@ -147,9 +147,10 @@ def index():
     return FileResponse(Path(__file__).parent/"web"/"index.html",headers={"Cache-Control":"no-store, max-age=0"})
 @app.post("/api/me")
 def me(body:Base):
-    p=auth(body.initData)
-    profile=guest(p["id"]) if p["id"] else None
-    return {"name":p.get("first_name","Гость"),"preview":p["id"]==0,"bookingEnabled":False,"confirmedBookings":profile["bookings"] if profile else 0,"guestStatus":profile["status"] if profile else "Гость","isAdmin":allowed(p["id"]),"adminRole":role(p["id"])}
+    p=auth(body.initData, require_registration=False)
+    registered=bool(user(p["id"])) if p["id"] else bool(LOCAL)
+    profile=guest(p["id"]) if registered and p["id"] else None
+    return {"name":p.get("first_name","Гость"),"contactShared":registered,"preview":p["id"]==0,"bookingEnabled":False,"confirmedBookings":profile["bookings"] if profile else 0,"guestStatus":profile["status"] if profile else "Гость","isAdmin":allowed(p["id"]),"adminRole":role(p["id"])}
 @app.post("/api/review")
 async def review(body:Review):
     p=auth(body.initData)
