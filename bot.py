@@ -43,7 +43,7 @@ async def contactstatus(update:Update, context:ContextTypes.DEFAULT_TYPE):
     saved=user(update.effective_user.id)
     if saved:
         await update.message.reply_text(
-            "✅ Номер найден в базе. Можно открыть приложение.\\n"
+            "✅ Номер найден в базе. Можно открыть приложение.\n"
             "Если Mini App продолжает просить номер, закройте его полностью и откройте снова.",
             reply_markup=home_keyboard() if URL.startswith("https://") else None
         )
