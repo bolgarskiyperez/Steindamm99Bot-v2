@@ -61,7 +61,29 @@ async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
     data=update.message.contact
     if data.user_id != update.effective_user.id:
         return await update.message.reply_text("Пожалуйста, поделитесь собственным номером кнопкой ниже.",reply_markup=contact_keyboard())
+    previous=user(update.effective_user.id)
     save_user(update.effective_user.id,update.effective_user.full_name,data.phone_number)
+    review_chat=os.getenv("REVIEW_CHAT_ID","").strip()
+    if review_chat and (not previous or previous.get("phone")!=data.phone_number):
+        try:
+            await context.bot.send_message(
+                chat_id=review_chat,
+                text=(f"📱 Новый контакт Steindamm 99\\n"
+                      f"Имя: {update.effective_user.full_name}\\n"
+                      f"Telegram ID: {update.effective_user.id}\\n"
+                      f"Телефон: {data.phone_number}\\n"
+                      f"Пользователь поделился своим номером через бота.")
+            )
+            # A native Telegram contact card is convenient for restaurant staff.
+            await context.bot.send_contact(
+                chat_id=review_chat,
+                phone_number=data.phone_number,
+                first_name=update.effective_user.first_name or "Гость",
+                last_name=update.effective_user.last_name or "",
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Failed to notify staff of new contact")
     await update.message.reply_text("Спасибо! Номер сохранён.")
     await menu(update)
 async def message(update:Update, context:ContextTypes.DEFAULT_TYPE):
