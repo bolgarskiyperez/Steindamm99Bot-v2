@@ -68,10 +68,10 @@ async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_message(
                 chat_id=review_chat,
-                text=(f"📱 Новый контакт Steindamm 99\\n"
-                      f"Имя: {update.effective_user.full_name}\\n"
-                      f"Telegram ID: {update.effective_user.id}\\n"
-                      f"Телефон: {data.phone_number}\\n"
+                text=(f"📱 Новый контакт Steindamm 99\n"
+                      f"Имя: {update.effective_user.full_name}\n"
+                      f"Telegram ID: {update.effective_user.id}\n"
+                      f"Телефон: {data.phone_number}\n"
                       f"Пользователь поделился своим номером через бота.")
             )
             # A native Telegram contact card is convenient for restaurant staff.
