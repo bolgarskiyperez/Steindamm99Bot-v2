@@ -3,7 +3,7 @@
 <title>Steindamm 99</title><script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>body{margin:0;background:#151515;color:#f7f3eb;font:16px system-ui,sans-serif}main{max-width:520px;margin:auto;padding:30px 18px}h1{font-size:30px}button,textarea{font:inherit}button{cursor:pointer;background:#302b26;color:white;border:1px solid #5c4a39;border-radius:14px;padding:16px;text-align:left;width:100%;margin:8px 0}button:disabled{opacity:.45}#booking{display:none}#bookingFrame{width:100%;height:70vh;min-height:520px;box-sizing:border-box;border:0;border-radius:12px;background:#fff}a.booking-link{display:block;color:#f7f3eb;background:#7d5730;border-radius:14px;text-align:center;padding:15px;margin:10px 0;text-decoration:none;font-weight:600}.hint{font-size:13px;line-height:1.5}textarea{box-sizing:border-box;width:100%;min-height:100px;background:#272727;color:white;padding:12px;border:1px solid #555;border-radius:12px}.muted{color:#b7afa3}#review{display:none}#stars button{width:18%;text-align:center;padding:12px 0}.selected{background:#7d5730}#admin{display:none}.admin-card{background:#23211f;border:1px solid #4c4035;border-radius:14px;padding:14px;margin:10px 0;overflow-wrap:anywhere}.admin-meta{font-size:13px;color:#b7afa3;margin-top:6px}.admin-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.admin-stats>div{background:#24211e;padding:14px;border-radius:12px}.admin-stats b{font-size:24px;display:block}.admin-row{display:flex;gap:8px;align-items:center}.admin-row button{flex:1;text-align:center;padding:12px 5px}.admin-field{background:#272727;color:#fff;border:1px solid #555;border-radius:10px;padding:13px;box-sizing:border-box;width:100%;font:inherit;margin:5px 0}#adminResults,#adminReviews{max-height:55vh;overflow:auto}.tiny{font-size:12px;color:#b7afa3}#adminControls{display:none} .legal-links{display:flex;flex-direction:column;gap:8px;margin-top:24px}.legal-links a{color:#e3b885;font-size:14px}</style></head>
 <body><main><h1>Steindamm 99</h1><p class="muted" id="hello">Добро пожаловать!</p>
-<section id="home"><button onclick="showBooking()">📅 Забронировать столик</button><button onclick="showReview()">⭐ Как прошёл ваш визит?</button><button id="adminEntry" style="display:none" onclick="showAdmin()">🔐 Панель администратора</button><div class="legal-links"><a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Политика обработки данных</a><a href="/legal/consent" target="_blank" rel="noopener noreferrer">Согласие на обработку данных</a></div><p class="muted hint">Документы пока в статусе проекта для согласования.</p></section>
+<section id="home"><button onclick="showBooking()">📅 Забронировать столик</button><button onclick="showReview()">⭐ Как прошёл ваш визит?</button><button id="adminEntry" onclick="showAdmin()">🔐 Панель администратора (тест)</button><div class="legal-links"><a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Политика обработки данных</a><a href="/legal/consent" target="_blank" rel="noopener noreferrer">Согласие на обработку данных</a></div><p class="muted hint">Документы пока в статусе проекта для согласования.</p></section>
 <section id="booking"><button onclick="back()">← Назад</button><h2>Бронирование столика</h2><p class="muted hint">Бронирование на 2 часа для 1–4 гостей. Для компаний больше 4 человек свяжитесь с рестораном по телефону. Предзаказы не принимаются.</p><p class="muted hint">Доступные даты и время загружаются из Restoplace. Если виджет не отображается, используйте кнопку ниже.</p><iframe id="bookingFrame" title="Бронирование Steindamm 99 через Restoplace" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe><a class="booking-link" id="bookingLink" href="https://644697.restoplace.ws/?clckid=6afa4268" target="_blank" rel="noopener noreferrer">📅 Открыть бронирование в Restoplace ↗</a></section><section id="review"><button onclick="back()">← Назад</button><h2>Как прошёл ваш визит?</h2><p>Оцените посещение</p><div id="stars"></div><p>Комментарий</p><textarea id="comment" placeholder="Расскажите о вашем визите"></textarea><button onclick="sendReview()">Отправить отзыв</button></section><section id="admin">
 <button onclick="back()">← На главную</button>
 <h2>Панель администратора</h2>
@@ -38,10 +38,7 @@ async function request(path,data){const r=await fetch(path,{method:"POST",header
 async function sendReview(){if(!rating){document.getElementById("status").textContent="Выберите оценку";return}try{const r=await request("/api/review",{stars:rating,comment:document.getElementById("comment").value});document.getElementById("status").textContent=r.preview?"Тестовый отзыв: отправка работает":"Спасибо за отзыв!";back()}catch(e){document.getElementById("status").textContent=e.message}}
 request("/api/me",{}).then(p=>{
   document.getElementById("hello").textContent="Здравствуйте, "+p.name+"!";
-  if(p.isAdmin){
-    document.getElementById("adminEntry").style.display="block";
-    document.getElementById("adminExport").style.display=p.adminRole==="admin"?"block":"none";
-  }
+  document.getElementById("adminExport").style.display=p.adminRole==="admin"?"block":"none";
 }).catch(e=>{
   document.getElementById("status").textContent="Не удалось проверить доступ: "+e.message+
     ". Закройте приложение и откройте его кнопкой внутри Telegram-бота.";
@@ -54,6 +51,8 @@ async function showAdmin(){
   for(const id of ["home","review","booking"])document.getElementById(id).style.display="none";
   document.getElementById("admin").style.display="block";
   document.getElementById("status").textContent="";
+  document.getElementById("adminControls").style.display="none";
+  document.getElementById("adminStats").replaceChildren();
   try{
     const stats=await request("/api/admin/stats",{});
     const root=document.getElementById("adminStats");root.replaceChildren();
@@ -62,7 +61,7 @@ async function showAdmin(){
     }
     document.getElementById("adminControls").style.display="block";
     await Promise.all([loadGuests(true),loadReviews(true)])
-  }catch(e){document.getElementById("status").textContent="Админ-панель: "+e.message}
+  }catch(e){document.getElementById("status").textContent="Админ-панель: "+e.message+". Кнопка показывается всем для тестирования, но реальные данные доступны только сотрудникам с правами."}
 }
 async function loadGuests(reset){
   if(adminBusy)return;
