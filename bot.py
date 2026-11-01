@@ -30,6 +30,7 @@ def home_keyboard():
     # Telegram WebApp reply buttons work in private chats and remain available.
     return ReplyKeyboardMarkup([
         [KeyboardButton("🍽 Открыть приложение",web_app=WebAppInfo(url=WEBAPP_LAUNCH_URL))],
+        [KeyboardButton("📱 Поделиться номером",request_contact=True)],
         [KeyboardButton("📄 Документы")],
     ],resize_keyboard=True,is_persistent=True)
 async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
