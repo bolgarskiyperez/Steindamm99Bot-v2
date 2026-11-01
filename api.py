@@ -37,7 +37,9 @@ def auth(init_data):
         expected=hmac.new(secret,check.encode(),hashlib.sha256).hexdigest()
         if not hmac.compare_digest(received,expected): raise ValueError()
         person=json.loads(data["user"])
-        if not user(person["id"]): raise ValueError()
+        # Staff roles are configured in environment variables. Their access must not
+        # depend on a guest row in ephemeral SQLite storage on Render Free.
+        if not allowed(person["id"]) and not user(person["id"]): raise ValueError()
         return person
     except Exception:
         raise HTTPException(401,"Откройте Mini App через Telegram после отправки номера")
@@ -127,7 +129,8 @@ def health():
     return {"ok":True}
 
 @app.get("/")
-def index(): return FileResponse(Path(__file__).parent/"web"/"index.html")
+def index():
+    return FileResponse(Path(__file__).parent/"web"/"index.html",headers={"Cache-Control":"no-store, max-age=0"})
 @app.post("/api/me")
 def me(body:Base):
     p=auth(body.initData)
