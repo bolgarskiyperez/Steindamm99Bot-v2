@@ -16,6 +16,7 @@ LOCAL=os.getenv("LOCAL_PREVIEW")=="1"
 REVIEW_CHAT_ID=os.getenv("REVIEW_CHAT_ID","").strip()
 
 logger=logging.getLogger(__name__)
+APP_VERSION="2026-11-01-mobile-admin-review-check"
 class Base(BaseModel):
     initData:str=""
 class AdminQuery(Base):
@@ -123,6 +124,10 @@ def legal_privacy():
 def legal_consent():
     return FileResponse(Path(__file__).parent/"web"/"consent.html")
 
+@app.get("/api/version")
+def version():
+    return {"version":APP_VERSION,"reviewChatConfigured":bool(REVIEW_CHAT_ID),"botConfigured":bool(TOKEN),"webAppConfigured":bool(os.getenv("WEBAPP_URL","").startswith("https://"))}
+
 @app.get("/health")
 @app.head("/health")
 def health():
@@ -142,7 +147,11 @@ async def review(body:Review):
     if p["id"]==0:return {"ok":True,"preview":True}
     feedback(p["id"],body.stars,body.comment)
     # Delivery is best-effort: a Telegram failure must never lose the saved review.
-    if REVIEW_CHAT_ID and TOKEN:
+    if not REVIEW_CHAT_ID:
+        logger.error("Review was stored, but REVIEW_CHAT_ID is not configured")
+    elif not TOKEN:
+        logger.error("Review was stored, but BOT_TOKEN is not configured")
+    else:
         profile=user(p["id"]) or {}
         guest_name=html.escape(profile.get("name") or p.get("first_name") or "Гость")
         comment=html.escape(body.comment.strip() or "Без комментария")
@@ -160,7 +169,7 @@ async def review(body:Review):
                 response.raise_for_status()
                 if not response.json().get("ok"): raise RuntimeError("Telegram sendMessage returned not ok")
         except Exception:
-            logger.exception("Review stored but Telegram notification was not delivered")
+            logger.exception("Review stored but Telegram notification was not delivered, chat configured=%s",bool(REVIEW_CHAT_ID))
     return {"ok":True}
 @app.post("/api/booking")
 def booking(body:Base):
