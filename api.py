@@ -134,6 +134,10 @@ def version():
 def health():
     return {"ok":True}
 
+@app.get("/app-contact-20261101")
+def contact_gate_ui():
+    return FileResponse(Path(__file__).parent/"web"/"index.html",headers={"Cache-Control":"no-store, max-age=0"})
+
 @app.get("/app-admin-20261101-v2")
 def admin_ui_updated():
     return FileResponse(Path(__file__).parent/"web"/"index.html",headers={"Cache-Control":"no-store, max-age=0"})
