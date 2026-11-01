@@ -1,29 +1,9 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Steindamm 99</title><script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>body{margin:0;background:#151515;color:#f7f3eb;font:16px system-ui,sans-serif}main{max-width:520px;margin:auto;padding:30px 18px}h1{font-size:30px}button,textarea{font:inherit}button{cursor:pointer;background:#302b26;color:white;border:1px solid #5c4a39;border-radius:14px;padding:16px;text-align:left;width:100%;margin:8px 0}button:disabled{opacity:.45}#booking{display:none}#bookingFrame{width:100%;height:70vh;min-height:520px;box-sizing:border-box;border:0;border-radius:12px;background:#fff}a.booking-link{display:block;color:#f7f3eb;background:#7d5730;border-radius:14px;text-align:center;padding:15px;margin:10px 0;text-decoration:none;font-weight:600}.hint{font-size:13px;line-height:1.5}textarea{box-sizing:border-box;width:100%;min-height:100px;background:#272727;color:white;padding:12px;border:1px solid #555;border-radius:12px}.muted{color:#b7afa3}#review{display:none}#stars button{width:18%;text-align:center;padding:12px 0}.selected{background:#7d5730}#admin{display:none}.admin-card{background:#23211f;border:1px solid #4c4035;border-radius:14px;padding:14px;margin:10px 0;overflow-wrap:anywhere}.admin-meta{font-size:13px;color:#b7afa3;margin-top:6px}.admin-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.admin-stats>div{background:#24211e;padding:14px;border-radius:12px}.admin-stats b{font-size:24px;display:block}.admin-row{display:flex;gap:8px;align-items:center}.admin-row button{flex:1;text-align:center;padding:12px 5px}.admin-field{background:#272727;color:#fff;border:1px solid #555;border-radius:10px;padding:13px;box-sizing:border-box;width:100%;font:inherit;margin:5px 0}#adminResults,#adminReviews{max-height:55vh;overflow:auto}.tiny{font-size:12px;color:#b7afa3}#adminControls{display:none} .legal-links{display:flex;flex-direction:column;gap:8px;margin-top:24px}.legal-links a{color:#e3b885;font-size:14px}.admin-menu{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:16px 0}.admin-menu button{font-size:14px;margin:0;min-height:65px;padding:12px;text-align:center}.admin-panel{background:#211f1d;border:1px solid #4b4138;border-radius:15px;padding:14px;margin:14px 0}.admin-footer{color:#b7afa3;font-size:13px;line-height:1.55;border-top:1px solid #4b4138;padding-top:18px;margin-top:24px}.admin-panel h3{margin-top:2px}#contactGate{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#151515;color:#f7f3eb;padding:26px;box-sizing:border-box;min-height:100dvh}
-#contactGate[hidden]{display:none}
-.gate-card{max-width:400px;text-align:center;width:100%}
-.gate-icon{font-size:54px;margin-bottom:18px}
-.gate-card h2{font-size:27px;line-height:1.25;margin:0 0 14px}
-.gate-card p{line-height:1.5;color:#b7afa3;margin:0 0 22px}
-.gate-card button{background:#76522f;text-align:center;font-weight:600}
-.gate-card a{color:#e3b885;font-size:13px}
-#gateStatus{font-size:14px;min-height:24px;margin:12px 0}
-</style></head>
-<body><div id="contactGate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
-  <div class="gate-card">
-    <div class="gate-icon">📱</div>
-    <h2 id="gateTitle">Для начала поделитесь номером</h2>
-    <p id="gateDescription">Чтобы пользоваться приложением Steindamm 99, отправьте свой номер телефона через Telegram.</p>
-    <button id="gateShare" onclick="requestPhone()">📱 Поделиться номером</button>
-    <button onclick="checkContact()">✅ Проверить номер повторно</button>
-    <button onclick="returnToChat()">← Вернуться в чат бота</button>
-    <p id="gateStatus" role="status">Проверяем регистрацию...</p>
-    <p><a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Политика обработки данных</a> · <a href="/legal/consent" target="_blank" rel="noopener noreferrer">Согласие</a></p>
-  </div>
-</div><main><h1>Steindamm 99</h1><p class="muted" id="hello">Добро пожаловать!</p>
-<section id="home"><button onclick="showBooking()">📅 Забронировать столик</button><button onclick="showReview()">⭐ Как прошёл ваш визит?</button><button id="adminEntry" onclick="showAdmin()">🔐 Панель администратора (тест)</button><div class="legal-links"><a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Политика обработки данных</a><a href="/legal/consent" target="_blank" rel="noopener noreferrer">Согласие на обработку данных</a></div><p class="muted hint">Документы пока в статусе проекта для согласования.</p><p class="muted hint">Версия интерфейса: 01.11.2026 / contact-check-v2</p></section>
+<style>body{margin:0;background:#151515;color:#f7f3eb;font:16px system-ui,sans-serif}main{max-width:520px;margin:auto;padding:30px 18px}h1{font-size:30px}button,textarea{font:inherit}button{cursor:pointer;background:#302b26;color:white;border:1px solid #5c4a39;border-radius:14px;padding:16px;text-align:left;width:100%;margin:8px 0}button:disabled{opacity:.45}#booking{display:none}#bookingFrame{width:100%;height:70vh;min-height:520px;box-sizing:border-box;border:0;border-radius:12px;background:#fff}a.booking-link{display:block;color:#f7f3eb;background:#7d5730;border-radius:14px;text-align:center;padding:15px;margin:10px 0;text-decoration:none;font-weight:600}.hint{font-size:13px;line-height:1.5}textarea{box-sizing:border-box;width:100%;min-height:100px;background:#272727;color:white;padding:12px;border:1px solid #555;border-radius:12px}.muted{color:#b7afa3}#review{display:none}#stars button{width:18%;text-align:center;padding:12px 0}.selected{background:#7d5730}#admin{display:none}.admin-card{background:#23211f;border:1px solid #4c4035;border-radius:14px;padding:14px;margin:10px 0;overflow-wrap:anywhere}.admin-meta{font-size:13px;color:#b7afa3;margin-top:6px}.admin-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.admin-stats>div{background:#24211e;padding:14px;border-radius:12px}.admin-stats b{font-size:24px;display:block}.admin-row{display:flex;gap:8px;align-items:center}.admin-row button{flex:1;text-align:center;padding:12px 5px}.admin-field{background:#272727;color:#fff;border:1px solid #555;border-radius:10px;padding:13px;box-sizing:border-box;width:100%;font:inherit;margin:5px 0}#adminResults,#adminReviews{max-height:55vh;overflow:auto}.tiny{font-size:12px;color:#b7afa3}#adminControls{display:none} .legal-links{display:flex;flex-direction:column;gap:8px;margin-top:24px}.legal-links a{color:#e3b885;font-size:14px}.admin-menu{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:16px 0}.admin-menu button{font-size:14px;margin:0;min-height:65px;padding:12px;text-align:center}.admin-panel{background:#211f1d;border:1px solid #4b4138;border-radius:15px;padding:14px;margin:14px 0}.admin-footer{color:#b7afa3;font-size:13px;line-height:1.55;border-top:1px solid #4b4138;padding-top:18px;margin-top:24px}.admin-panel h3{margin-top:2px}</style></head>
+<body><main><h1>Steindamm 99</h1><p class="muted" id="hello">Добро пожаловать!</p>
+<section id="home"><button onclick="showBooking()">📅 Забронировать столик</button><button onclick="showReview()">⭐ Как прошёл ваш визит?</button><button id="adminEntry" onclick="showAdmin()">🔐 Панель администратора (тест)</button><div class="legal-links"><a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Политика обработки данных</a><a href="/legal/consent" target="_blank" rel="noopener noreferrer">Согласие на обработку данных</a></div><p class="muted hint">Документы пока в статусе проекта для согласования.</p><p class="muted hint">Версия интерфейса: 01.11.2026 / restored</p></section>
 <section id="booking"><button onclick="back()">← Назад</button><h2>Бронирование столика</h2><p class="muted hint">Бронирование на 2 часа для 1–4 гостей. Для компаний больше 4 человек свяжитесь с рестораном по телефону. Предзаказы не принимаются.</p><p class="muted hint">Доступные даты и время загружаются из Restoplace. Если виджет не отображается, используйте кнопку ниже.</p><iframe id="bookingFrame" title="Бронирование Steindamm 99 через Restoplace" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe><a class="booking-link" id="bookingLink" href="https://644697.restoplace.ws/?clckid=6afa4268" target="_blank" rel="noopener noreferrer">📅 Открыть бронирование в Restoplace ↗</a></section><section id="review"><button onclick="back()">← Назад</button><h2>Как прошёл ваш визит?</h2><p>Оцените посещение</p><div id="stars"></div><p>Комментарий</p><textarea id="comment" placeholder="Расскажите о вашем визите"></textarea><button onclick="sendReview()">Отправить отзыв</button></section><section id="admin">
 <button onclick="back()">← На главную</button>
 <h2>Панель администратора</h2>
@@ -91,66 +71,18 @@ async function sendReview(){
       ?"Спасибо! Отзыв сохранён и отправлен сотрудникам."
       :"Отзыв сохранён, но сообщение сотрудникам НЕ доставлено. "+(r.notificationError||"Проверьте настройки уведомлений.");
   }catch(e){
-    if(e.status===409){showGate("Номер отсутствует в базе после перезапуска сервера. Поделитесь им повторно, затем отправьте отзыв.");return}
-    if(e.status===401){showGate("Авторизация Telegram устарела. Закройте Mini App и откройте его снова через кнопку бота.");return}
+    if(e.status===409){document.getElementById("status").textContent="Номер не найден в текущей базе. Поделитесь номером повторно кнопкой в Telegram-боте, затем отправьте отзыв.";return}
+    if(e.status===401){document.getElementById("status").textContent="Авторизация Telegram устарела. Закройте Mini App и откройте его заново через кнопку бота.";return}
     document.getElementById("status").textContent="Отзыв не отправлен: "+e.message;
   }
 }
-let contactChecking=false;
-const gate=document.getElementById("contactGate");
-const gateStatus=document.getElementById("gateStatus");
-function showGate(message){
-  gate.hidden=false;
-  if(message)gateStatus.textContent=message;
-}
-async function checkContact(){
-  if(contactChecking)return false;
-  contactChecking=true;
-  gateStatus.textContent="Проверяем номер...";
-  try{
-    const p=await request("/api/me",{});
-    if(!p.contactShared){
-      showGate("Номер не найден в текущей базе. Если уже делились им, вернитесь в чат и отправьте /contactstatus. При необходимости нажмите «📱 Поделиться номером» в чате бота.");
-      return false;
-    }
-    document.getElementById("hello").textContent="Здравствуйте, "+p.name+"!";
-    document.getElementById("adminExport").style.display=p.adminRole==="admin"?"block":"none";
-    document.getElementById("exportRestricted").style.display=p.adminRole==="admin"?"none":"block";
-    gate.hidden=true;
-    gateStatus.textContent="";
-    return true;
-  }catch(e){
-    showGate("Не удалось проверить регистрацию: "+e.message+". Откройте приложение из Telegram и повторите проверку.");
-    return false;
-  }finally{contactChecking=false}
-}
-async function verifyAfterSharing(){
-  for(let attempt=0;attempt<8;attempt++){
-    await new Promise(resolve=>setTimeout(resolve,900));
-    if(await checkContact())return;
-  }
-  gateStatus.textContent="Номер пока не появился в базе. Закройте приложение, поделитесь номером кнопкой в чате бота, затем откройте его заново. Для проверки можно отправить боту /contactstatus.";
-}
-function returnToChat(){
-  if(tg&&typeof tg.close==="function"){tg.close();return}
-  gateStatus.textContent="Закройте Mini App и отправьте номер кнопкой в чате бота.";
-}
-function requestPhone(){
-  if(typeof tg?.requestContact==="function"){
-    gateStatus.textContent="Подтвердите передачу номера в Telegram...";
-    try{
-      tg.requestContact(status=>{
-        if(status==="sent")verifyAfterSharing();
-        else if(status==="cancelled")gateStatus.textContent="Номер не передан. Для продолжения подтвердите отправку.";
-        else gateStatus.textContent="Если запрос недоступен, закройте приложение и нажмите «📱 Поделиться номером» в чате бота.";
-      });
-    }catch(e){gateStatus.textContent="Закройте приложение и нажмите «📱 Поделиться номером» в чате бота."}
-  }else{
-    gateStatus.textContent="Закройте приложение и нажмите «📱 Поделиться номером» в чате бота, затем откройте Mini App снова.";
-  }
-}
-checkContact();
-document.addEventListener("visibilitychange",()=>{if(!document.hidden&&gate&&!gate.hidden)checkContact()});
+request("/api/me",{}).then(p=>{
+  document.getElementById("hello").textContent="Здравствуйте, "+p.name+"!";
+  document.getElementById("adminExport").style.display=p.adminRole==="admin"?"block":"none";
+  document.getElementById("exportRestricted").style.display=p.adminRole==="admin"?"none":"block";
+}).catch(e=>{
+  document.getElementById("status").textContent="Не удалось загрузить данные профиля. Приложение доступно, попробуйте открыть его заново через Telegram.";
+});
 
 function safeText(v){return String(v??"")}
 function element(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=safeText(txt);return e}
