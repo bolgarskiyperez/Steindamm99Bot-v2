@@ -200,6 +200,22 @@ async def reviewsdate_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
     for r in found:
         await update.message.reply_text(f'Отзыв #{r["id"]} • {r["created_at"]}\n{r["name"]} (ID {r["user_id"]}) • {r["stars"]}/5\n{r["comment"] or "Без комментария"}')
 
+async def diag_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if not authorized(update,"admin"): return
+    review_id=os.getenv("REVIEW_CHAT_ID","").strip()
+    configured=bool(review_id)
+    web_url=os.getenv("WEBAPP_URL","").strip()
+    # Avoid exposing tokens or customer records.
+    await update.message.reply_text(
+        "Диагностика Steindamm 99:\n"
+        f"Роль: {role(update.effective_user.id)}\n"
+        f"Адрес Mini App: {web_url or 'не задан'}\n"
+        f"REVIEW_CHAT_ID: {'настроен' if configured else 'НЕ НАСТРОЕН'}\n"
+        f"RUN_BOT_IN_API: {os.getenv('RUN_BOT_IN_API','не задан')}\n"
+        "Проверка версии: добавьте /api/version к адресу сервера.\n"
+        "Бот должен состоять в чате отзывов и иметь право отправлять сообщения."
+    )
+
 async def chatid_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if not allowed(update.effective_user.id,"admin"): return
     await update.message.reply_text(f"ID этого чата: {update.effective_chat.id}\nДобавьте его в REVIEW_CHAT_ID файла .env и перезапустите сервер uvicorn.")
@@ -218,6 +234,7 @@ def build_application():
     app.add_handler(CommandHandler("finddate",finddate_cmd))
     app.add_handler(CommandHandler("reviewsdate",reviewsdate_cmd))
     app.add_handler(CommandHandler("chatid",chatid_cmd))
+    app.add_handler(CommandHandler("diag",diag_cmd))
     app.add_handler(CommandHandler("reviews",reviews_cmd))
     app.add_handler(CommandHandler("exportguests",export_all_cmd))
     app.add_handler(CommandHandler("exportregular",export_regular_cmd))
