@@ -152,8 +152,8 @@ async function exportGuests(){
     const resp=await fetch("/api/admin/export",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({initData,...adminParams()})});
     if(!resp.ok)throw Error("Не удалось выгрузить базу (код "+resp.status+")");
     const blob=await resp.blob();
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");a.href=url;a.download=adminParams().regularOnly?"regular.csv":"guests.csv";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)
+    const objectUrl=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=objectUrl;a.download=adminParams().regularOnly?"regular.csv":"guests.csv";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(objectUrl),1500)
   }catch(e){document.getElementById("adminTabStatus").textContent=e.message}
 }
 </script></body></html>
