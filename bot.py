@@ -14,6 +14,8 @@ TOKEN=os.getenv("BOT_TOKEN","")
 URL=os.getenv("WEBAPP_URL","").strip()
 PRIVACY=os.getenv("PRIVACY_URL","").strip()
 BASE_URL=URL.rstrip("/") if URL.startswith("https://") else ""
+# Changing the Mini App URL invalidates Telegram WebView cache after deployments.
+WEBAPP_LAUNCH_URL=URL+("&" if "?" in URL else "?")+"v=20261101-mobile-fix" if URL.startswith("https://") else URL
 def docs_text():
     if not BASE_URL:
         return "Документы доступны после настройки WEBAPP_URL."
@@ -27,11 +29,11 @@ def contact_keyboard():
 def home_keyboard():
     # Telegram WebApp reply buttons work in private chats and remain available.
     return ReplyKeyboardMarkup([
-        [KeyboardButton("🍽 Открыть приложение",web_app=WebAppInfo(url=URL))],
+        [KeyboardButton("🍽 Открыть приложение",web_app=WebAppInfo(url=WEBAPP_LAUNCH_URL))],
         [KeyboardButton("📄 Документы")],
     ],resize_keyboard=True,is_persistent=True)
 async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if user(update.effective_user.id):
+    if user(update.effective_user.id) or allowed(update.effective_user.id):
         return await menu(update)
     text="Добро пожаловать в Steindamm 99!\n\nДля продолжения поделитесь номером телефона кнопкой ниже."
     text+="\n\n"+docs_text()+"\n\n⚠️ Документы пока на согласовании. Бот предназначен только для тестирования."
@@ -40,13 +42,20 @@ async def documents(update:Update, context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(docs_text())
 
 async def menu(update):
-    if not user(update.effective_user.id):
+    if not user(update.effective_user.id) and not allowed(update.effective_user.id):
         return await start(update,None)
     if not URL.startswith("https://"):
         return await update.message.reply_text("Номер сохранён. Для запуска Mini App укажи публичный HTTPS-адрес WEBAPP_URL в .env.")
     await update.message.reply_text(
         "Приложение Steindamm 99 всегда доступно по кнопке внизу чата 👇",
         reply_markup=home_keyboard()
+    )
+    # Separate inline button refreshes WebApp launch even when an old reply keyboard is cached.
+    await update.message.reply_text(
+        "Если Telegram открывал старую версию приложения, откройте новую здесь:",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔄 Открыть обновлённое приложение",web_app=WebAppInfo(url=WEBAPP_LAUNCH_URL))
+        ]])
     )
 async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
     data=update.message.contact
@@ -56,7 +65,7 @@ async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Спасибо! Номер сохранён.")
     await menu(update)
 async def message(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if not user(update.effective_user.id):
+    if not user(update.effective_user.id) and not allowed(update.effective_user.id):
         return await update.message.reply_text("Отправьте номер кнопкой «Поделиться номером», а не текстом.",reply_markup=contact_keyboard())
     if (update.message.text or "").strip()=="📄 Документы":
         return await documents(update,context)
