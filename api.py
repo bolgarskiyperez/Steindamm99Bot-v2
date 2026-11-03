@@ -285,6 +285,33 @@ def demo_guests(body:AdminQuery):
     require_admin(body.initData,"manager")
     return {"items":tb.guest_report(body.query,body.regularOnly)}
 
+class DemoStatusChange(Base):
+    reserveId:str=Field(min_length=1,max_length=30,pattern=r"^[0-9]+$")
+    status:int=Field(ge=4,le=6)
+
+@app.post("/api/restoplace/admin/status")
+async def demo_status_change(body:DemoStatusChange):
+    require_admin(body.initData,"manager")
+    if body.status not in (4,6):
+        raise HTTPException(422,"Для демонстрации доступны только приход и отмена")
+    if not rp.write_enabled():
+        raise HTTPException(403,"Тестовая запись выключена")
+    existing=tb.external_booking(body.reserveId)
+    if not existing:
+        raise HTTPException(404,"Бронь отсутствует в тестовой базе бота")
+    if existing["state"]=="unknown":
+        raise HTTPException(409,"Сначала необходимо проверить исход предыдущей операции")
+    desired="arrived" if body.status==4 else "cancelled"
+    if existing["state"]==desired:
+        return {"ok":True,"state":desired,"alreadyProcessed":True}
+    if existing["state"]=="cancelled":
+        raise HTTPException(409,"Отменённую бронь нельзя изменить")
+    # One request only; on an ambiguous network failure do not automatically retry.
+    await rp.call("PUT","/reserves/"+body.reserveId+"/status",
+                  payload={"status":body.status},write=True)
+    tb.set_external_status(body.reserveId,desired)
+    return {"ok":True,"state":desired}
+
 @app.post("/api/restoplace/admin/reconcile")
 async def restoplace_reconcile(body:BookingLookup):
     require_admin(body.initData,"manager")
