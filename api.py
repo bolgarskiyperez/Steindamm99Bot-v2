@@ -232,9 +232,6 @@ async def restoplace_slots(body:SlotsQuery):
 async def restoplace_create(body:BookingCreate):
     p=auth(body.initData,require_registration=False)
     if not p["id"]:raise HTTPException(403,"Для бронирования откройте приложение через Telegram")
-    testers={int(x) for x in os.getenv("DEMO_TESTER_IDS","").replace(" ","").split(",") if x.isdigit()}
-    if not allowed(p["id"]) and p["id"] not in testers:
-        raise HTTPException(403,"Тестовые бронирования доступны только назначенным тестировщикам")
     if not rp.write_enabled():raise HTTPException(403,"Запись в тестовый Restoplace пока отключена")
     test_name="Тестовый гость Steindamm99"
     test_phone="79990000000"
