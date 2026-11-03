@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Steindamm 99 · Demo V3</title><script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#131413;--panel:#20221f;--line:#42433e;--gold:#c6a474;--sub:#b7b5ad}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f9f6ef;font:15px system-ui,sans-serif}
+main{max-width:600px;margin:auto;padding:24px 16px 48px}.brand{letter-spacing:.06em;font:600 27px Georgia,serif}.hint{color:var(--sub);font-size:13px;line-height:1.6}
+.hero{background:linear-gradient(135deg,#35372d,#1e211d);padding:24px;border:1px solid #555444;border-radius:20px;margin:20px 0}
+.hero h2{font:500 29px Georgia,serif;margin:10px 0}.hero p{color:#d2cabc}
+button,.action{font:inherit;color:#faf7ee;border:1px solid var(--line);border-radius:14px;padding:15px;background:var(--panel);width:100%;text-align:left;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}.primary{background:#8c6c44;border-color:#b99a68;text-align:center;font-weight:700}.small{padding:11px;margin:5px 0;font-size:14px}.selected{background:#81623a;border-color:#c7a678}.stack{display:grid;gap:10px}.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.section{display:none}.section.active{display:block}.panel{border:1px solid var(--line);border-radius:18px;padding:16px;margin:14px 0;background:#1a1b19}
+input,select,textarea{font:inherit;border:1px solid #55584f;background:#262823;color:white;padding:14px;width:100%;border-radius:12px}
+label{display:block;font-size:13px;color:var(--sub);margin:13px 0 6px}.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.slots button{text-align:center;padding:12px 4px}.nav{display:flex;justify-content:space-between;align-items:center;margin:18px 0}
+.back{width:auto;padding:9px 14px;background:transparent}.tag{border:1px solid #75654c;color:#dbc29a;padding:4px 9px;border-radius:20px;font-size:11px}
+.notice{padding:12px;background:#302b22;border:1px solid #6d593a;border-radius:12px;font-size:13px;line-height:1.5;margin:12px 0}
+.item{padding:14px;border:1px solid #454941;border-radius:12px;margin:8px 0;background:#242721;overflow-wrap:anywhere}
+.item b{display:block;margin-bottom:6px}.item small{color:var(--sub)}.empty{color:var(--sub);font-size:14px}
+a{color:var(--gold)}.footer{font-size:12px;color:#aaa59c;margin-top:25px;line-height:1.6}
+#toast{position:sticky;bottom:8px;background:#44382a;border-radius:12px;padding:12px;margin-top:12px;display:none}
+</style></head>
+<body><main>
+<div class="nav"><div class="brand">STEINDAMM 99</div><span class="tag">ТЕСТОВАЯ ВЕРСИЯ</span></div>
+<section id="home" class="section active">
+ <div class="hero"><div class="hint" id="greeting">Добро пожаловать</div><h2>Ваш столик ждёт вас</h2><p>Выберите удобное время, остальное мы подготовим.</p><button class="primary" onclick="go('booking')">Забронировать столик</button></div>
+ <div class="pair"><button onclick="go('mine')">📅 Мои брони</button><button onclick="go('review')">⭐ Оставить отзыв</button></div>
+ <div class="stack" style="margin-top:10px"><button id="staffButton" onclick="go('admin')" hidden>🔐 Кабинет ресторана</button></div>
+ <div class="footer">Демо на тестовом заведении Restoplace. Никаких броней в действующем ресторане создавать нельзя.<p><a href="/legal/privacy" target="_blank">Политика обработки данных (проект)</a> · <a href="/legal/consent" target="_blank">Согласие (проект)</a></p></div>
+</section>
+<section id="booking" class="section">
+ <div class="nav"><button class="back" onclick="go('home')">← Назад</button><b>Бронирование</b></div>
+ <div class="panel">
+ <label for="visitDate">Дата посещения</label><input id="visitDate" type="date" onchange="refreshSlots()">
+ <label for="partySize">Количество гостей</label><select id="partySize" onchange="refreshSlots()">
+ <option value="1">1 гость</option><option value="2" selected>2 гостя</option><option value="3">3 гостя</option><option value="4">4 гостя</option>
+ <option value="5">5 гостей</option><option value="6">6 гостей</option><option value="7">7 гостей</option><option value="8">8 гостей</option><option value="9">9 гостей</option><option value="10">10 гостей</option><option value="12">12 гостей</option><option value="15">15 гостей</option><option value="20">20 гостей</option>
+ </select>
+ <p id="typeHint" class="hint"></p>
+ <label>Выберите время</label><div id="slotList" class="slots"></div>
+ <div class="notice" id="bookingInfo">Для оформления тестовой записи отправьте свой номер боту через Telegram. Брони создаются только в отдельном тестовом заведении.</div>
+ <button class="primary" id="submitBooking" disabled onclick="submitBooking()">Продолжить</button>
+ </div>
+</section>
+<section id="mine" class="section"><div class="nav"><button class="back" onclick="go('home')">← Назад</button><b>Мои бронирования</b></div><div id="myBookings" class="panel"><p class="empty">Загружаем...</p></div></section>
+<section id="review" class="section">
+ <div class="nav"><button class="back" onclick="go('home')">← Назад</button><b>Обратная связь</b></div>
+ <div class="panel"><h3>Как прошёл визит?</h3><div class="pair"><button onclick="rating=4;markStars()">★★★★</button><button onclick="rating=5;markStars()">★★★★★</button></div>
+ <p id="starValue" class="hint">Выберите оценку</p><textarea id="comment" rows="4" placeholder="Ваш комментарий"></textarea><button class="primary" onclick="submitReview()">Отправить отзыв</button></div>
+</section>
+<section id="admin" class="section">
+ <div class="nav"><button class="back" onclick="go('home')">← Назад</button><b>Кабинет ресторана</b></div>
+ <div class="notice">Тестовый кабинет. Данные из Restoplace учитываются только для броней, созданных ботом в тестовом заведении.</div>
+ <div class="pair"><button onclick="loadAdmin('stats')">📊 Статистика</button><button onclick="loadAdmin('bookings')">📅 Брони и ожидание</button>
+ <button onclick="loadAdmin('guests')">🔎 Гости</button><button onclick="loadAdmin('regular')">💎 Постоянные</button>
+ <button onclick="loadAdmin('reviews')">⭐ Отзывы</button><button onclick="loadAdmin('export')">📥 Выгрузка CSV</button></div>
+ <div class="panel"><h3 id="adminTitle">Обзор</h3><div id="adminContent" class="empty">Выберите раздел</div></div>
+</section>
+<div id="toast" role="status"></div>
+</main><script>
+const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();
+const initData=tg?.initData||"";
+let rating=0,selectedTime="",userRole="guest",pendingKey=null,config={};
+const $=id=>document.getElementById(id);
+function toast(message){$("toast").style.display="block";$("toast").textContent=message}
+function go(screen){document.querySelectorAll(".section").forEach(e=>e.classList.remove("active"));$(screen).classList.add("active");window.scrollTo(0,0);if(screen==="booking")refreshSlots();if(screen==="mine")loadMine();if(screen==="admin")loadAdmin("stats")}
+async function req(url,data={}){if(!initData)throw Error("Откройте приложение кнопкой «Меню» Telegram");let r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store",body:JSON.stringify({initData,...data})});let j=await r.json().catch(()=>({detail:"Сервер вернул некорректный ответ"}));if(!r.ok)throw Error(j.detail||"Ошибка сервера");return j}
+async function bootstrap(){try{let [p,c]=await Promise.all([req("/api/me"),req("/api/restoplace/config")]);$("greeting").textContent="Здравствуйте, "+p.name+"!";config=c;userRole=p.adminRole;$("staffButton").hidden=!p.isAdmin;if(!c.writesEnabled)toast(c.testConnected?"Чтение тестового Restoplace подключено. Создание броней пока выключено.":"Подключение к тестовому Restoplace пока не настроено.");}catch(e){toast(e.message)}}
+function timeOptions(){let a=[];for(let h=11;h<=21;h++)for(let m of [0,30]){if(h===21&&m===30)continue;a.push(String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"))}return a}
+function dateLocal(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return y+"-"+m+"-"+day}
+let today=dateLocal(new Date());$("visitDate").min=today;$("visitDate").max=dateLocal(new Date(Date.now()+90*86400000));$("visitDate").value=today;
+function setTime(time){selectedTime=time;document.querySelectorAll("#slotList button").forEach(b=>b.classList.toggle("selected",b.dataset.time===time));$("submitBooking").disabled=false}
+function slotButtons(slots){const root=$("slotList");root.replaceChildren();for(let x of slots){let b=document.createElement("button");b.textContent=x.time;b.dataset.time=x.time;b.disabled=!x.available;b.onclick=()=>setTime(x.time);root.append(b)}if(!slots.length)root.textContent="На эту дату свободного времени нет."}
+async function refreshSlots(){selectedTime="";pendingKey=null;$("submitBooking").disabled=true;let count=Number($("partySize").value);$("typeHint").textContent=count>=5?"Для компании от 5 гостей создаётся заявка в лист ожидания. Столик ещё не подтверждён.":"Бронь на 2 часа. Выберите доступный слот.";if(count>=5){slotButtons(timeOptions().map(time=>({time,available:true})));return} $("slotList").textContent="Проверяем свободные столики...";try{let data=await req("/api/restoplace/slots",{date:$("visitDate").value,count});slotButtons(data.items)}catch(e){$("slotList").textContent="Не удалось получить время: "+e.message}}
+function makeKey(){return crypto.randomUUID?crypto.randomUUID():[1,2,3,4].map(()=>Math.random().toString(16).slice(2)).join("")}
+async function submitBooking(){let btn=$("submitBooking");if(!selectedTime)return;const count=Number($("partySize").value);if(!confirm("Создать "+(count>=5?"заявку в лист ожидания":"бронь")+" в ОТДЕЛЬНОМ ТЕСТОВОМ заведении Restoplace?"))return;btn.disabled=true;if(!pendingKey)pendingKey=makeKey();try{let x=await req("/api/restoplace/create",{requestKey:pendingKey,date:$("visitDate").value,time:selectedTime,count});if(!x.ok){toast("Статус: "+x.state+". Не отправляйте заявку повторно, попросите сотрудника проверить её.");return}toast("Создана "+(count>=5?"заявка в лист ожидания":"тестовая бронь")+" №"+(x.number||x.externalId));if(x.paymentNeeded)toast("Restoplace ожидает оплату. Проверьте условия тестового заведения.");go("mine")}catch(e){toast(e.message+" Если возникла ошибка связи, не нажимайте повторно до проверки заявки.")}finally{btn.disabled=false}}
+async function loadMine(){try{let x=await req("/api/restoplace/mine");renderCards("myBookings",x.items, b=>["№"+(b.external_number||"—"),b.visit_date+" "+b.visit_time, b.party_size+" гостей", b.waitlist?"Лист ожидания":"Бронь", "Статус: "+b.state]);}catch(e){$("myBookings").textContent=e.message}}
+function renderCards(id,items,fields){const root=$(id);root.replaceChildren();if(!items.length){root.textContent="Записей пока нет.";return}for(let x of items){let e=document.createElement("div");e.className="item";let v=fields(x);let title=document.createElement("b");title.textContent=v[0];e.append(title);for(let s of v.slice(1)){let line=document.createElement("div");line.className="hint";line.textContent=String(s??"");e.append(line)}root.append(e)}}
+function markStars(){$("starValue").textContent="Оценка: "+rating+" из 5"}
+async function submitReview(){if(!rating){toast("Выберите оценку");return}try{let x=await req("/api/review",{stars:rating,comment:$("comment").value});toast(x.notificationDelivered?"Спасибо, отзыв сохранён.":"Спасибо, отзыв записан. Сотрудники увидят его в кабинете.");$("comment").value="";rating=0;go("home")}catch(e){toast(e.message)}}
+async function loadAdmin(section){$("adminTitle").textContent=({stats:"Статистика",bookings:"История броней и ожидание",guests:"Поиск гостей",regular:"Постоянные гости",reviews:"Отзывы",export:"Экспорт базы"})[section];let box=$("adminContent");box.replaceChildren();box.textContent="Загружаем...";try{if(section==="stats"){let [a,b]=await Promise.all([req("/api/admin/stats"),req("/api/restoplace/admin/bookings")]);box.textContent="Зарегистрировано гостей: "+a.guests+" · Отзывов: "+a.reviews+" · Тестовых бронирований: "+b.summary.bookings+" · В листе ожидания: "+b.summary.waitlist+" · Постоянных (по тестовым визитам): "+b.summary.regularGuests;return}if(section==="bookings"){let x=await req("/api/restoplace/admin/bookings");renderCards("adminContent",x.items,b=>["№"+(b.external_number||"—")+" · "+(b.waitlist?"Ожидание":"Бронь"),b.name+" · "+b.phone,b.visit_date+" "+b.visit_time+" · "+b.party_size+" гостей","Статус: "+b.state]);return}if(section==="guests"||section==="regular"){box.replaceChildren();let inp=document.createElement("input");inp.placeholder="Имя, телефон или Telegram ID";box.append(inp);let results=document.createElement("div");box.append(results);let button=document.createElement("button");button.className="small";button.textContent="Найти";box.insertBefore(button,results);async function search(){try{let x=await req("/api/admin/guests",{query:inp.value,regularOnly:section==="regular",offset:0});results.replaceChildren();for(let g of x.items){let e=document.createElement("div");e.className="item";e.textContent=g.name+" · "+g.phone+" · броней: "+g.bookings+" · "+g.status;results.append(e)}if(!x.items.length)results.textContent="Гости не найдены."}catch(e){results.textContent=e.message}}button.onclick=search;await search();return}if(section==="reviews"){let x=await req("/api/admin/reviews",{offset:0});renderCards("adminContent",x.items,r=>[r.stars+" ★ · "+r.name,r.comment||"Без комментария",r.created_at]);return}if(section==="export"){box.textContent=userRole==="admin"?"CSV доступен в существующей панели экспорта после отдельной авторизации.":"Выгрузка доступна только главному администратору.";return}}catch(e){box.textContent=e.message}}
+bootstrap();
+</script></body></html>
