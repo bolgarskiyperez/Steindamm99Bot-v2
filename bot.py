@@ -15,7 +15,7 @@ URL=os.getenv("WEBAPP_URL","").strip()
 PRIVACY=os.getenv("PRIVACY_URL","").strip()
 BASE_URL=URL.rstrip("/") if URL.startswith("https://") else ""
 # Changing the Mini App URL invalidates Telegram WebView cache after deployments.
-WEBAPP_LAUNCH_URL=BASE_URL+"/app-signed-20261101" if BASE_URL else URL
+WEBAPP_LAUNCH_URL=BASE_URL+"/app-demo-v3-20261103" if BASE_URL else URL
 def docs_text():
     if not BASE_URL:
         return "Документы доступны после настройки WEBAPP_URL."
@@ -96,7 +96,7 @@ async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
     if not saved:
         return await update.message.reply_text("Ошибка сохранения контакта. Попробуйте ещё раз.",reply_markup=contact_keyboard())
     review_chat=os.getenv("REVIEW_CHAT_ID","").strip()
-    if review_chat and (not previous or previous.get("phone")!=data.phone_number):
+    if os.getenv("ALLOW_CONTACT_GROUP_NOTIFICATIONS")=="1" and review_chat and (not previous or previous.get("phone")!=data.phone_number):
         try:
             await context.bot.send_message(
                 chat_id=review_chat,
