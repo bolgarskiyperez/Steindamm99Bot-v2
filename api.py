@@ -70,6 +70,8 @@ def admin_reviews_api(body:AdminQuery):
 @app.post("/api/admin/export")
 def admin_export_api(body:AdminQuery):
     require_admin(body.initData,"admin")
+    if rp.mode()=="test" and os.getenv("ALLOW_LEGACY_EXPORT")!="1":
+        raise HTTPException(403,"В тестовой версии экспорт реальных контактов отключён")
     stream=io.StringIO()
     writer=csv.writer(stream,delimiter=";")
     writer.writerow(["telegram_id","name","phone","registered_utc","bookings","status"])
@@ -279,6 +281,21 @@ def restoplace_mine(body:Base):
 def restoplace_admin_bookings(body:Base):
     require_admin(body.initData,"manager")
     return {"items":tb.all_bookings(),"summary":tb.summary()}
+
+@app.post("/api/restoplace/admin/export")
+def demo_export(body:Base):
+    require_admin(body.initData,"admin")
+    stream=io.StringIO()
+    writer=csv.writer(stream,delimiter=";")
+    writer.writerow(["telegram_id","test_name","test_phone","created_at","test_bookings","test_visits","status"])
+    for g in tb.guest_report():
+        def safe(value):
+            v=str(value if value is not None else "")
+            return "'"+v if v.lstrip().startswith(("=","+","-","@")) else v
+        writer.writerow([safe(g[k]) for k in ("id","name","phone","created_at","bookings","visits","status")])
+    return Response(content=(chr(65279)+stream.getvalue()).encode("utf-8"),
+                    media_type="text/csv",headers={"Content-Disposition":'attachment; filename="demo-guests.csv"',
+                    "Cache-Control":"no-store"})
 
 @app.post("/api/restoplace/admin/guests")
 def demo_guests(body:AdminQuery):
