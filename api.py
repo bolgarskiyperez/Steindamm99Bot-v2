@@ -276,7 +276,7 @@ class BookingCreate(Base):
     requestKey:str=Field(min_length=32,max_length=64,pattern=r"^[a-fA-F0-9-]+$")
     date:str=Field(min_length=10,max_length=10)
     time:str=Field(min_length=5,max_length=5)
-    count:int=Field(ge=1,le=20)
+    count:int=Field(ge=1,le=6)
 class BookingLookup(Base):
     reserveId:str=Field(min_length=1,max_length=30,pattern=r"^[0-9]+$")
 
