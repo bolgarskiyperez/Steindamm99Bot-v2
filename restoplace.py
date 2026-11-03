@@ -73,7 +73,7 @@ async def create(name,phone,date,time,count,waitlist=False):
     payload={"from":start.strftime("%Y-%m-%d %H:%M:%S"),
              "to":(start+timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S"),
              "name":name,"phone":phone,"count":count,
-             "source":"telegram.ru","waitlist":waitlist,"deposit":True}
+             "source":"telegram.ru","waitlist":waitlist,"deposit":False}
     return await call("POST","/reserves/",payload=payload,write=True)
 
 async def list_reserves(page=1):
