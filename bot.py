@@ -59,6 +59,21 @@ async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
     text="Добро пожаловать в Steindamm 99!\n\nДля продолжения поделитесь номером телефона кнопкой ниже."
     text+="\n\n"+docs_text()+"\n\n⚠️ Документы пока на согласовании. Бот предназначен только для тестирования."
     await update.message.reply_text(text,reply_markup=contact_keyboard())
+async def testfeedback(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    """Manually preview the post-visit request, without touching bookings."""
+    if update.effective_chat.type!="private":
+        return
+    if not WEBAPP_LAUNCH_URL.startswith("https://"):
+        return await update.message.reply_text("Ссылка Mini App пока не настроена.")
+    link=WEBAPP_LAUNCH_URL+"?section=review"
+    await update.message.reply_text(
+        "Спасибо, что посетили Steindamm 99! Как прошёл ваш вечер? "
+        "Будем рады вашей оценке и отзыву ⭐",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("⭐ Оставить отзыв",web_app=WebAppInfo(url=link))
+        ]])
+    )
+
 async def contactstatus(update:Update, context:ContextTypes.DEFAULT_TYPE):
     saved=user(update.effective_user.id)
     if saved:
@@ -322,6 +337,7 @@ def build_application():
     app.add_handler(CommandHandler("start",start))
     app.add_handler(CommandHandler("documents",documents))
     app.add_handler(CommandHandler("contactstatus",contactstatus))
+    app.add_handler(CommandHandler("testfeedback",testfeedback))
     app.add_handler(CommandHandler("admin",admin))
     app.add_handler(CommandHandler("guests",guests_cmd))
     app.add_handler(CommandHandler("regular",regular_cmd))
