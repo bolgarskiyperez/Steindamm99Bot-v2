@@ -137,6 +137,10 @@ def version():
 def health():
     return {"ok":True}
 
+@app.get("/app-demo-v3-20261103")
+def demo_v3_app():
+    return FileResponse(Path(__file__).parent/"web"/"v3.html",headers={"Cache-Control":"no-store, max-age=0"})
+
 @app.get("/app-signed-20261101")
 def signed_telegram_app():
     return FileResponse(Path(__file__).parent/"web"/"index.html",headers={"Cache-Control":"no-store, max-age=0"})
@@ -186,14 +190,7 @@ async def review(body:Review):
         logger.error("Review stored without notification: missing chat ID or bot token")
         return {"ok":True,"notificationDelivered":False,"notificationError":"Уведомления не настроены на сервере"}
 
-    profile=user(p["id"]) or {}
-    guest_name=profile.get("name") or p.get("first_name") or "Гость"
-    comment=body.comment.strip() or "Без комментария"
-    message=(f"⭐ Новый отзыв Steindamm 99\n"
-             f"Гость: {guest_name}\n"
-             f"Оценка: {body.stars}/5\n"
-             f"Telegram ID: {p['id']}\n\n"
-             f"{comment}")
+    message="⭐ Новый отзыв Steindamm 99. Подробности доступны в защищённой админ-панели."
     try:
         # Use the same Telegram Bot API client as the working /testreview command.
         async with Bot(token=TOKEN) as client:
