@@ -112,3 +112,16 @@ def guest_report(query="", regular_only=False):
             continue
         results.append(item)
     return sorted(results,key=lambda g:(-g["visits"],-g["bookings"],g["id"]))[:150]
+
+def external_booking(external_id):
+    init()
+    with connect() as db:
+        row=db.execute("SELECT * FROM test_booking_operations WHERE external_id=?",
+                       (str(external_id),)).fetchone()
+        return dict(row) if row else None
+
+def set_external_status(external_id,state):
+    init()
+    with connect() as db:
+        db.execute("UPDATE test_booking_operations SET state=?,updated_at=CURRENT_TIMESTAMP WHERE external_id=?",
+                   (state,str(external_id)))
