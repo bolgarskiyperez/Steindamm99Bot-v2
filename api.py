@@ -316,8 +316,13 @@ async def restoplace_create(body:BookingCreate):
     else:
         rp.timeslot_start(body.date,body.time)
     waitlist=body.count>=5
-    new,existing=tb.start(body.requestKey,p["id"],test_name,test_phone,
-                          body.date,body.time,body.count,waitlist)
+    try:
+        new,existing=tb.start(body.requestKey,p["id"],test_name,test_phone,
+                              body.date,body.time,body.count,waitlist)
+    except tb.BookingConflict as exc:
+        raise HTTPException(409,str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409,"Некорректная или повторная операция бронирования") from exc
     if not new:
         return {"ok":existing["state"] in ("confirmed","waitlist","pending_payment"),
                 "state":existing["state"],"externalId":existing["external_id"],
