@@ -4,11 +4,13 @@ from telegram import Bot
 from access import allowed, role
 from pathlib import Path
 from urllib.parse import parse_qsl
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from db import init, user, feedback, guest, admin_guest_list, admin_review_list, admin_stats
+import restoplace as rp
+import test_bookings as tb
 load_dotenv()
 init()
 app=FastAPI(docs_url=None,redoc_url=None)
@@ -17,7 +19,7 @@ LOCAL=os.getenv("LOCAL_PREVIEW")=="1"
 REVIEW_CHAT_ID=os.getenv("REVIEW_CHAT_ID","").strip()
 
 logger=logging.getLogger(__name__)
-APP_VERSION="2026-11-01-mobile-admin-review-check"
+APP_VERSION="2026-11-03-restoplace-test-v3"
 class Base(BaseModel):
     initData:str=""
 class AdminQuery(Base):
@@ -201,6 +203,107 @@ async def review(body:Review):
         logger.exception("Review stored but sending staff notification failed")
         return {"ok":True,"notificationDelivered":False,
                 "notificationError":"Telegram не принял уведомление. Проверьте журнал Render."}
+
+
+# Restoplace demo integration. Never enable writes with a production venue key.
+class SlotsQuery(Base):
+    date:str=Field(min_length=10,max_length=10)
+    count:int=Field(ge=1,le=4)
+class BookingCreate(Base):
+    requestKey:str=Field(min_length=32,max_length=64,pattern=r"^[a-fA-F0-9-]+$")
+    date:str=Field(min_length=10,max_length=10)
+    time:str=Field(min_length=5,max_length=5)
+    count:int=Field(ge=1,le=20)
+class BookingLookup(Base):
+    reserveId:str=Field(min_length=1,max_length=30,pattern=r"^[0-9]+$")
+
+@app.post("/api/restoplace/config")
+def restoplace_config(body:Base):
+    p=auth(body.initData,require_registration=False)
+    return {"mode":rp.mode(),"testConnected":rp.configured(),
+            "writesEnabled":rp.write_enabled(),
+            "isAdmin":allowed(p["id"]),"demoOnly":True}
+
+@app.post("/api/restoplace/slots")
+async def restoplace_slots(body:SlotsQuery):
+    auth(body.initData,require_registration=False)
+    return {"items":await rp.slots(body.date,body.count),"source":"restoplace-test"}
+
+@app.post("/api/restoplace/create")
+async def restoplace_create(body:BookingCreate):
+    p=auth(body.initData,require_registration=False)
+    if not p["id"]:raise HTTPException(403,"Для бронирования откройте приложение через Telegram")
+    if not rp.write_enabled():raise HTTPException(403,"Запись в тестовый Restoplace пока отключена")
+    contact=user(p["id"])
+    if not contact or not contact.get("phone"):
+        raise HTTPException(409,"Отправьте контакт через кнопку Telegram-бота перед созданием брони")
+    if body.count<=4:
+        listed=await rp.slots(body.date,body.count)
+        if not any(s["time"]==body.time and s["available"] for s in listed):
+            raise HTTPException(409,"Выбранное время уже недоступно. Выберите другой слот.")
+    else:
+        rp.timeslot_start(body.date,body.time)
+    waitlist=body.count>=5
+    new,existing=tb.start(body.requestKey,p["id"],contact["name"],contact["phone"],
+                          body.date,body.time,body.count,waitlist)
+    if not new:
+        return {"ok":existing["state"] in ("confirmed","waitlist","pending_payment"),
+                "state":existing["state"],"externalId":existing["external_id"],
+                "number":existing["external_number"],"alreadyProcessed":True}
+    try:
+        result=await rp.create(contact["name"],contact["phone"],body.date,body.time,body.count,waitlist)
+        external=result.get("id") if isinstance(result,dict) else None
+        if not external:
+            tb.finish(body.requestKey,"unknown")
+            raise HTTPException(502,"Restoplace не вернул ID. Требуется ручная сверка, не повторяйте запрос.")
+        state=("pending_payment" if result.get("paymentNeed") else "waitlist" if waitlist else "confirmed")
+        tb.finish(body.requestKey,state,external,result.get("number"))
+        return {"ok":True,"state":state,"externalId":str(external),
+                "number":str(result.get("number","")),
+                "paymentNeeded":bool(result.get("paymentNeed")),
+                "paymentLink":result.get("paymentLink") if result.get("paymentNeed") else None}
+    except HTTPException as exc:
+        # Never retry automatically on ambiguous API failures.
+        tb.finish(body.requestKey,"unknown" if exc.status_code>=500 else "rejected")
+        raise
+    except Exception:
+        tb.finish(body.requestKey,"unknown")
+        logger.exception("Unexpected test booking creation error")
+        raise HTTPException(502,"Не удалось подтвердить бронь, требуется ручная сверка")
+
+@app.post("/api/restoplace/mine")
+def restoplace_mine(body:Base):
+    p=auth(body.initData,require_registration=False)
+    return {"items":tb.mine(p["id"]) if p["id"] else []}
+
+@app.post("/api/restoplace/admin/bookings")
+def restoplace_admin_bookings(body:Base):
+    require_admin(body.initData,"manager")
+    return {"items":tb.all_bookings(),"summary":tb.summary()}
+
+@app.post("/api/restoplace/admin/reconcile")
+async def restoplace_reconcile(body:BookingLookup):
+    require_admin(body.initData,"manager")
+    return {"reserve":await rp.get_reserve(body.reserveId)}
+
+@app.post("/api/restoplace/webhook/{secret}")
+async def restoplace_webhook(secret:str,request:Request):
+    configured_secret=os.getenv("RESTOPLACE_WEBHOOK_SECRET","")
+    if len(configured_secret)<32 or not hmac.compare_digest(secret,configured_secret):
+        raise HTTPException(404,"Not found")
+    if rp.mode()!="test":raise HTTPException(404,"Not found")
+    raw=await request.body()
+    if len(raw)>65536:raise HTTPException(413,"Too large")
+    try: data=json.loads(raw)
+    except (ValueError,UnicodeDecodeError):raise HTTPException(400,"Invalid JSON")
+    if not isinstance(data,dict) or data.get("event") not in ("reserve.created","reserve.updated"):
+        return {"ok":True,"ignored":True}
+    # Never store unsolicited PII. Only update reservations created by our test bot.
+    reserve_id=data.get("id")
+    status=data.get("status")
+    if not isinstance(status,int):
+        return {"ok":True,"ignored":True}
+    return {"ok":True,"matched":tb.event_for_known_booking(reserve_id,status)}
 
 @app.post("/api/booking")
 def booking(body:Base):
