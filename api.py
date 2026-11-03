@@ -230,10 +230,12 @@ async def restoplace_slots(body:SlotsQuery):
 async def restoplace_create(body:BookingCreate):
     p=auth(body.initData,require_registration=False)
     if not p["id"]:raise HTTPException(403,"Для бронирования откройте приложение через Telegram")
+    testers={int(x) for x in os.getenv("DEMO_TESTER_IDS","").replace(" ","").split(",") if x.isdigit()}
+    if not allowed(p["id"]) and p["id"] not in testers:
+        raise HTTPException(403,"Тестовые бронирования доступны только назначенным тестировщикам")
     if not rp.write_enabled():raise HTTPException(403,"Запись в тестовый Restoplace пока отключена")
-    contact=user(p["id"])
-    if not contact or not contact.get("phone"):
-        raise HTTPException(409,"Отправьте контакт через кнопку Telegram-бота перед созданием брони")
+    test_name="Тестовый гость Steindamm99"
+    test_phone="79990000000"
     if body.count<=4:
         listed=await rp.slots(body.date,body.count)
         if not any(s["time"]==body.time and s["available"] for s in listed):
@@ -241,14 +243,14 @@ async def restoplace_create(body:BookingCreate):
     else:
         rp.timeslot_start(body.date,body.time)
     waitlist=body.count>=5
-    new,existing=tb.start(body.requestKey,p["id"],contact["name"],contact["phone"],
+    new,existing=tb.start(body.requestKey,p["id"],test_name,test_phone,
                           body.date,body.time,body.count,waitlist)
     if not new:
         return {"ok":existing["state"] in ("confirmed","waitlist","pending_payment"),
                 "state":existing["state"],"externalId":existing["external_id"],
                 "number":existing["external_number"],"alreadyProcessed":True}
     try:
-        result=await rp.create(contact["name"],contact["phone"],body.date,body.time,body.count,waitlist)
+        result=await rp.create(test_name,test_phone,body.date,body.time,body.count,waitlist)
         external=result.get("id") if isinstance(result,dict) else None
         if not external:
             tb.finish(body.requestKey,"unknown")
