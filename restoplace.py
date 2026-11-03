@@ -2,13 +2,14 @@
 import os
 import httpx
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 
 BASE="https://api.restoplace.cc"
 def mode():
     return os.getenv("RESTOPLACE_MODE","mock").strip().lower()
 def write_enabled():
-    return mode()=="test" and os.getenv("RESTOPLACE_TEST_WRITES","false").lower()=="true" and bool(os.getenv("RESTOPLACE_TEST_API_KEY",""))
+    return mode()=="test" and os.getenv("RESTOPLACE_TEST_WRITES","false").lower()=="true" and os.getenv("RESTOPLACE_TEST_VENUE_CONFIRMED")=="yes" and bool(os.getenv("RESTOPLACE_TEST_API_KEY",""))
 def configured():
     return mode()=="test" and bool(os.getenv("RESTOPLACE_TEST_API_KEY",""))
 async def call(method,path,params=None,payload=None,write=False):
@@ -40,7 +41,8 @@ def timeslot_start(date,time):
         start=datetime.strptime(date+" "+time,"%Y-%m-%d %H:%M")
     except ValueError as exc:
         raise HTTPException(422,"Некорректная дата или время") from exc
-    if start<=datetime.now() or start>datetime.now()+timedelta(days=90):
+    now=datetime.now(ZoneInfo("Europe/Kaliningrad")).replace(tzinfo=None)
+    if start<=now or start>now+timedelta(days=90):
         raise HTTPException(422,"Выберите будущую дату в пределах 90 дней")
     if not ("11:00"<=time<="21:00") or start.minute not in (0,30):
         raise HTTPException(422,"Доступно время с 11:00 до 21:00 с шагом 30 минут")
