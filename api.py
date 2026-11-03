@@ -283,8 +283,7 @@ class BookingLookup(Base):
 @app.post("/api/restoplace/config")
 def restoplace_config(body:Base):
     p=auth(body.initData,require_registration=False)
-    real_ids={int(x) for x in os.getenv("REAL_CONTACT_TEST_IDS","").replace(" ","").split(",") if x.isdigit()}
-    return {"realContactTest":bool(p["id"] in real_ids and os.getenv("REAL_CONTACT_TEST_ENABLED")=="1"),"mode":rp.mode(),"testConnected":rp.configured(),
+    return {"realContactTest":bool(p["id"] and os.getenv("REAL_CONTACT_TEST_ENABLED")=="1"),"mode":rp.mode(),"testConnected":rp.configured(),
             "writesEnabled":rp.write_enabled(),
             "isAdmin":allowed(p["id"]),"demoOnly":True}
 
@@ -298,10 +297,9 @@ async def restoplace_create(body:BookingCreate):
     p=auth(body.initData,require_registration=False)
     if not p["id"]:raise HTTPException(403,"Для бронирования откройте приложение через Telegram")
     if not rp.write_enabled():raise HTTPException(403,"Запись в тестовый Restoplace пока отключена")
-    # Real contact data is allowed only for explicitly listed test volunteers.
-    # Keep the synthetic fallback for all other Telegram users.
-    real_test_ids={int(x) for x in os.getenv("REAL_CONTACT_TEST_IDS","").replace(" ","").split(",") if x.isdigit()}
-    use_real=p["id"] in real_test_ids and os.getenv("REAL_CONTACT_TEST_ENABLED")=="1"
+    # Real contact mode is available to every signed-in Telegram guest when enabled.
+    # The bot verifies that the contact belongs to the same Telegram account.
+    use_real=os.getenv("REAL_CONTACT_TEST_ENABLED")=="1"
     if use_real:
         profile=user(p["id"])
         if not profile or not profile.get("phone"):
