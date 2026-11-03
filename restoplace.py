@@ -1,0 +1,82 @@
+"""Restoplace adapter. Explicitly restricted to a dedicated test venue on Render."""
+import os
+import httpx
+from datetime import datetime, timedelta
+from fastapi import HTTPException
+
+BASE="https://api.restoplace.cc"
+def mode():
+    return os.getenv("RESTOPLACE_MODE","mock").strip().lower()
+def write_enabled():
+    return mode()=="test" and os.getenv("RESTOPLACE_TEST_WRITES","false").lower()=="true" and bool(os.getenv("RESTOPLACE_TEST_API_KEY",""))
+def configured():
+    return mode()=="test" and bool(os.getenv("RESTOPLACE_TEST_API_KEY",""))
+async def call(method,path,params=None,payload=None,write=False):
+    if mode()!="test":
+        raise HTTPException(503,"Restoplace: тестовый API не подключён")
+    if not configured():
+        raise HTTPException(503,"Добавьте RESTOPLACE_TEST_API_KEY в Render Environment")
+    if write and not write_enabled():
+        raise HTTPException(403,"Тестовая запись отключена настройкой RESTOPLACE_TEST_WRITES")
+    if not path.startswith("/") or "://" in path:
+        raise HTTPException(400,"Некорректный путь API")
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(12.0,connect=5.0),follow_redirects=False) as client:
+            response=await client.request(method,BASE+path,
+                headers={"X-API-Key":os.environ["RESTOPLACE_TEST_API_KEY"],"Accept":"application/json"},
+                params=params,json=payload)
+            response.raise_for_status()
+            data=response.json()
+    except (httpx.TimeoutException,httpx.TransportError) as exc:
+        raise HTTPException(504,"Restoplace не ответил. Не повторяйте создание брони до сверки.") from exc
+    except (httpx.HTTPStatusError,ValueError) as exc:
+        raise HTTPException(502,"Ошибка ответа Restoplace") from exc
+    if not isinstance(data,dict) or data.get("error"):
+        raise HTTPException(422,"Restoplace: "+str(data.get("error","некорректный ответ"))[:200])
+    return data.get("responseData")
+
+def timeslot_start(date,time):
+    try:
+        start=datetime.strptime(date+" "+time,"%Y-%m-%d %H:%M")
+    except ValueError as exc:
+        raise HTTPException(422,"Некорректная дата или время") from exc
+    if start<=datetime.now() or start>datetime.now()+timedelta(days=90):
+        raise HTTPException(422,"Выберите будущую дату в пределах 90 дней")
+    if not ("11:00"<=time<="21:00") or start.minute not in (0,30):
+        raise HTTPException(422,"Доступно время с 11:00 до 21:00 с шагом 30 минут")
+    return start
+
+async def slots(date,count):
+    if count<1 or count>4: raise HTTPException(422,"Для 5+ гостей доступен лист ожидания")
+    try: datetime.strptime(date,"%Y-%m-%d")
+    except ValueError as exc: raise HTTPException(422,"Некорректная дата") from exc
+    data=await call("GET","/times/",params={"date":date,"length":120,"shift":30})
+    result=[]
+    for entry in data if isinstance(data,list) else []:
+        raw=str(entry.get("from",""))
+        time=raw[11:16]
+        try: start=timeslot_start(date,time)
+        except HTTPException: continue
+        if raw[:10]!=date: continue
+        available=entry.get("counts",{}).get(str(count))=="free"
+        result.append({"time":time,"available":available})
+    return result
+
+async def create(name,phone,date,time,count,waitlist=False):
+    start=timeslot_start(date,time)
+    if count>4 and not waitlist:
+        raise HTTPException(422,"Компания от 5 гостей оформляется в лист ожидания")
+    if count<=4 and waitlist:
+        raise HTTPException(422,"Для 1–4 гостей используйте обычное бронирование")
+    payload={"from":start.strftime("%Y-%m-%d %H:%M:%S"),
+             "to":(start+timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S"),
+             "name":name,"phone":phone,"count":count,
+             "source":"telegram.ru","waitlist":waitlist,"deposit":True}
+    return await call("POST","/reserves/",payload=payload,write=True)
+
+async def list_reserves(page=1):
+    return await call("GET","/reserves",params={"page":page})
+
+async def get_reserve(reserve_id):
+    if not str(reserve_id).isdigit(): raise HTTPException(422,"Некорректный ID")
+    return await call("GET","/reserves/"+str(reserve_id))
