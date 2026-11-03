@@ -64,11 +64,11 @@ def all_bookings(limit=100):
             waitlist,state,external_id,external_number,created_at FROM test_booking_operations
             ORDER BY created_at DESC LIMIT ?""",(limit,)).fetchall()]
 
-def event_for_known_booking(reserve_id,status):
+def event_for_known_booking(reserve_id,status,opened=False):
     init()
     if not str(reserve_id).isdigit():return False
     state={1:"pending_review",2:"pending_review",3:"confirmed",4:"arrived",
-           5:"closed",6:"cancelled",8:"cancelled"}.get(status,"updated")
+           5:"visited" if opened else "closed",6:"cancelled",8:"cancelled"}.get(status,"updated")
     with connect() as c:
         cursor=c.execute("""UPDATE test_booking_operations SET state=?,updated_at=CURRENT_TIMESTAMP
                             WHERE external_id=?""",(state,str(reserve_id)))
@@ -125,3 +125,19 @@ def set_external_status(external_id,state):
     with connect() as db:
         db.execute("UPDATE test_booking_operations SET state=?,updated_at=CURRENT_TIMESTAMP WHERE external_id=?",
                    (state,str(external_id)))
+
+def claim_feedback(external_id):
+    """Guarantee only one automatic feedback message per recorded completed visit."""
+    init()
+    with connect() as db:
+        db.execute("ALTER TABLE test_booking_operations ADD COLUMN feedback_sent INTEGER NOT NULL DEFAULT 0") if not any(
+            x["name"]=="feedback_sent" for x in db.execute("PRAGMA table_info(test_booking_operations)")
+        ) else None
+        db.execute("BEGIN IMMEDIATE")
+        row=db.execute("""SELECT user_id FROM test_booking_operations
+                          WHERE external_id=? AND state='visited' AND feedback_sent=0""",
+                       (str(external_id),)).fetchone()
+        if not row:return None
+        db.execute("UPDATE test_booking_operations SET feedback_sent=1 WHERE external_id=?",
+                   (str(external_id),))
+        return row["user_id"]
