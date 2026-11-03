@@ -138,7 +138,7 @@ def claim_due_feedback(limit=15):
     with connect() as c:
         c.execute("BEGIN IMMEDIATE")
         rows=c.execute("""SELECT request_key,user_id FROM test_booking_operations
-            WHERE waitlist=0 AND state IN ('confirmed','arrived','visited')
+            WHERE waitlist=0 AND state IN ('arrived','visited')
             AND feedback_sent=0
             AND datetime(visit_date || ' ' || visit_time,'+150 minutes')
                 <= datetime('now','+2 hours')
