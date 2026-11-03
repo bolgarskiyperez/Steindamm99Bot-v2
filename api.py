@@ -334,7 +334,16 @@ async def restoplace_webhook(secret:str,request:Request):
     status=data.get("status")
     if not isinstance(status,int):
         return {"ok":True,"ignored":True}
-    return {"ok":True,"matched":tb.event_for_known_booking(reserve_id,status)}
+    matched=tb.event_for_known_booking(reserve_id,status,opened=bool(data.get("time_open")))
+    if matched and status==5 and data.get("time_open") and os.getenv("FEEDBACK_AUTO_DEMO_ENABLED")=="1":
+        uid=tb.claim_feedback(reserve_id)
+        if uid and TOKEN:
+            try:
+                async with Bot(token=TOKEN) as bot:
+                    await bot.send_message(chat_id=uid,text="Спасибо за визит в Steindamm 99! Если будет минутка, оставьте отзыв через Mini App.")
+            except Exception:
+                logger.exception("Could not send one-time demo feedback reminder")
+    return {"ok":True,"matched":matched}
 
 @app.post("/api/booking")
 def booking(body:Base):
