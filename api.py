@@ -280,6 +280,11 @@ def restoplace_admin_bookings(body:Base):
     require_admin(body.initData,"manager")
     return {"items":tb.all_bookings(),"summary":tb.summary()}
 
+@app.post("/api/restoplace/admin/guests")
+def demo_guests(body:AdminQuery):
+    require_admin(body.initData,"manager")
+    return {"items":tb.guest_report(body.query,body.regularOnly)}
+
 @app.post("/api/restoplace/admin/reconcile")
 async def restoplace_reconcile(body:BookingLookup):
     require_admin(body.initData,"manager")
