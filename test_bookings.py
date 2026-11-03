@@ -79,8 +79,36 @@ def summary():
     with connect() as c:
         booked=c.execute("SELECT COUNT(*) FROM test_booking_operations").fetchone()[0]
         waiting=c.execute("SELECT COUNT(*) FROM test_booking_operations WHERE waitlist=1").fetchone()[0]
-        arrived=c.execute("SELECT COUNT(*) FROM test_booking_operations WHERE state='arrived'").fetchone()[0]
+        arrived=c.execute("SELECT COUNT(*) FROM test_booking_operations WHERE state IN ('arrived','visited')").fetchone()[0]
         regular=c.execute("""SELECT COUNT(*) FROM (
-                SELECT user_id FROM test_booking_operations WHERE state IN ('arrived','closed')
+                SELECT user_id FROM test_booking_operations WHERE state IN ('arrived','visited')
                 GROUP BY user_id HAVING COUNT(*)>=5)""").fetchone()[0]
         return {"bookings":booked,"waitlist":waiting,"visits":arrived,"regularGuests":regular}
+
+def guest_report(query="", regular_only=False):
+    """Report on synthetic test bookings only."""
+    init()
+    with connect() as db:
+        rows=[dict(x) for x in db.execute("""SELECT user_id,name,phone,state,created_at
+            FROM test_booking_operations ORDER BY created_at DESC LIMIT 5000""").fetchall()]
+    grouped={}
+    for row in rows:
+        uid=row["user_id"]
+        if uid not in grouped:
+            grouped[uid]={"id":uid,"name":row["name"],"phone":row["phone"],
+                          "created_at":row["created_at"],"bookings":0,"visits":0}
+        item=grouped[uid]
+        item["bookings"]+=1
+        if row["state"] in ("arrived","visited"):
+            item["visits"]+=1
+        if row["created_at"]<item["created_at"]:
+            item["created_at"]=row["created_at"]
+    results=[]
+    for item in grouped.values():
+        item["status"]="Постоянный гость" if item["visits"]>=5 else "Гость"
+        if regular_only and item["visits"]<5:
+            continue
+        if query and query.lower() not in str(item["id"]).lower() and query.lower() not in item["name"].lower() and query not in item["phone"]:
+            continue
+        results.append(item)
+    return sorted(results,key=lambda g:(-g["visits"],-g["bookings"],g["id"]))[:150]
