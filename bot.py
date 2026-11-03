@@ -6,7 +6,7 @@ from datetime import date
 from telegram import InputFile
 from access import allowed, role
 from dotenv import load_dotenv
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, MenuButtonWebApp
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, MenuButtonDefault
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from db import init, user, save_user, guests, guest, reviews, add_verified_booking, cancel_booking, find_guests, reviews_by_date
 load_dotenv()
@@ -23,26 +23,29 @@ def docs_text():
             f"Политика: {BASE_URL}/legal/privacy\n"
             f"Согласие: {BASE_URL}/legal/consent")
 
+CONTACT_BUTTON="📲 ПОДЕЛИТЬСЯ НОМЕРОМ ТЕЛЕФОНА"
+
 def contact_keyboard():
-    return ReplyKeyboardMarkup([[KeyboardButton("📱 Поделиться номером",request_contact=True)]],resize_keyboard=True,one_time_keyboard=False)
+    # Telegram controls physical keyboard sizing. A single full-width button and
+    # resize_keyboard=False make the contact action as prominent as the client permits.
+    return ReplyKeyboardMarkup([
+        [KeyboardButton(CONTACT_BUTTON,request_contact=True)],
+        [KeyboardButton("📄 Документы")],
+    ],resize_keyboard=False,is_persistent=True,one_time_keyboard=False)
 
 def home_keyboard():
-    # Telegram WebApp reply buttons work in private chats and remain available.
     return ReplyKeyboardMarkup([
         [KeyboardButton("🍽 Открыть приложение")],
-        [KeyboardButton("📱 Поделиться номером",request_contact=True)],
         [KeyboardButton("📄 Документы")],
     ],resize_keyboard=True,is_persistent=True)
+
 async def configure_menu(app):
-    if WEBAPP_LAUNCH_URL.startswith("https://"):
-        await app.bot.set_chat_menu_button(
-            menu_button=MenuButtonWebApp(
-                text="🍽 Открыть приложение",
-                web_app=WebAppInfo(url=WEBAPP_LAUNCH_URL)
-            )
-        )
+    # Do not expose the WebApp as a global Telegram Menu entry before registration.
+    await app.bot.set_chat_menu_button(menu_button=MenuButtonDefault())
 
 async def open_inline(update:Update):
+    if not user(update.effective_user.id):
+        return await start(update,None)
     if not WEBAPP_LAUNCH_URL.startswith("https://"):
         return await update.message.reply_text("Приложение пока не настроено.")
     await update.message.reply_text(
@@ -54,10 +57,16 @@ async def open_inline(update:Update):
     )
 
 async def start(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if user(update.effective_user.id) or allowed(update.effective_user.id):
+    if user(update.effective_user.id):
         return await menu(update)
-    text="Добро пожаловать в Steindamm 99!\n\nДля продолжения поделитесь номером телефона кнопкой ниже."
-    text+="\n\n"+docs_text()+"\n\n⚠️ Документы пока на согласовании. Бот предназначен только для тестирования."
+    text=(
+        "Добро пожаловать в Steindamm 99! 🍽\n\n"
+        "Чтобы забронировать столик, сначала нажмите большую кнопку "
+        "«📲 ПОДЕЛИТЬСЯ НОМЕРОМ ТЕЛЕФОНА» внизу чата.\n\n"
+        "Telegram предложит отправить ваш номер. Подтвердите отправку, "
+        "и здесь появится кнопка «🍽 Открыть приложение».\n\n"
+        "Сейчас доступна тестовая версия; документы можно открыть кнопкой «📄 Документы»."
+    )
     await update.message.reply_text(text,reply_markup=contact_keyboard())
 async def testfeedback(update:Update, context:ContextTypes.DEFAULT_TYPE):
     """Manually preview the post-visit request, without touching bookings."""
@@ -92,12 +101,12 @@ async def documents(update:Update, context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(docs_text())
 
 async def menu(update):
-    if not user(update.effective_user.id) and not allowed(update.effective_user.id):
+    if not user(update.effective_user.id):
         return await start(update,None)
     if not URL.startswith("https://"):
         return await update.message.reply_text("Номер сохранён. Для запуска Mini App укажи публичный HTTPS-адрес WEBAPP_URL в .env.")
     await update.message.reply_text(
-        "Откройте приложение через кнопку «Меню» или «🍽 Открыть приложение» ниже.",
+        "Номер подтверждён. Нажмите «🍽 Открыть приложение» внизу чата.",
         reply_markup=home_keyboard()
     )
 
@@ -131,15 +140,20 @@ async def contact(update:Update, context:ContextTypes.DEFAULT_TYPE):
         except Exception:
             import logging
             logging.getLogger(__name__).exception("Failed to notify staff of new contact")
-    await update.message.reply_text("Спасибо! Номер сохранён. Теперь можно открыть приложение.")
-    await menu(update)
+    await update.message.reply_text("✅ Номер сохранён! Теперь доступно бронирование.",reply_markup=home_keyboard())
+    await open_inline(update)
 async def message(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if not user(update.effective_user.id) and not allowed(update.effective_user.id):
-        return await update.message.reply_text("Отправьте номер кнопкой «Поделиться номером», а не текстом.",reply_markup=contact_keyboard())
-    if (update.message.text or "").strip()=="🍽 Открыть приложение":
-        return await open_inline(update)
-    if (update.message.text or "").strip()=="📄 Документы":
+    text=(update.message.text or "").strip()
+    if text=="📄 Документы":
         return await documents(update,context)
+    if not user(update.effective_user.id):
+        return await update.message.reply_text(
+            "Для начала нажмите кнопку «📲 ПОДЕЛИТЬСЯ НОМЕРОМ ТЕЛЕФОНА» внизу чата. "
+            "Присылать номер обычным сообщением не нужно.",
+            reply_markup=contact_keyboard()
+        )
+    if text=="🍽 Открыть приложение":
+        return await open_inline(update)
     await menu(update)
 
 def authorized(update, need="manager"):
@@ -298,7 +312,7 @@ async def testreview_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
         )
 
 async def open_cmd(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if not user(update.effective_user.id) and not allowed(update.effective_user.id):
+    if not user(update.effective_user.id):
         return await start(update,context)
     if not BASE_URL:
         return await update.message.reply_text("Не настроен WEBAPP_URL.")
