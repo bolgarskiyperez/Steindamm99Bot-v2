@@ -1,7 +1,10 @@
 """Local demonstration booking ledger. Replace this repository with a PostgreSQL implementation for production."""
 import sqlite3
 from db import DB
-from datetime import datetime
+from datetime import datetime, timedelta
+
+class BookingConflict(Exception):
+    pass
 
 def connect():
     c=sqlite3.connect(DB,timeout=20)
@@ -43,6 +46,19 @@ def start(key,uid,name,phone,date,time,count,waitlist):
         if row:
             if row["user_id"]!=uid: raise ValueError("Запрос принадлежит другому пользователю")
             return False,dict(row)
+        # Serialize the check and insertion, so parallel requests cannot bypass this rule.
+        # Adjacent 2-hour periods are blocked as well as overlapping periods.
+        requested_start=datetime.strptime(date+" "+time,"%Y-%m-%d %H:%M")
+        requested_end=requested_start+timedelta(hours=2)
+        active=c.execute("""SELECT visit_time,state FROM test_booking_operations
+             WHERE user_id=? AND visit_date=? AND waitlist=0
+               AND state NOT IN ('cancelled','rejected')""",(uid,date)).fetchall()
+        if not waitlist:
+            for booking in active:
+                booked_start=datetime.strptime(date+" "+booking["visit_time"],"%Y-%m-%d %H:%M")
+                booked_end=booked_start+timedelta(hours=2)
+                if requested_start<=booked_end and requested_end>=booked_start:
+                    raise BookingConflict("У вас уже есть бронь на соседнее или пересекающееся время в этот день.")
         c.execute("""INSERT INTO test_booking_operations
             (request_key,user_id,name,phone,visit_date,visit_time,party_size,waitlist)
             VALUES(?,?,?,?,?,?,?,?)""",(key,uid,name,phone,date,time,count,int(waitlist)))
