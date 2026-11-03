@@ -3,6 +3,9 @@ import sqlite3
 from db import DB
 from datetime import datetime, timedelta
 
+def booking_minutes(time):
+    return 90 if time=="21:30" else 120
+
 class BookingConflict(Exception):
     pass
 
@@ -49,14 +52,14 @@ def start(key,uid,name,phone,date,time,count,waitlist):
         # Serialize the check and insertion, so parallel requests cannot bypass this rule.
         # Adjacent 2-hour periods are blocked as well as overlapping periods.
         requested_start=datetime.strptime(date+" "+time,"%Y-%m-%d %H:%M")
-        requested_end=requested_start+timedelta(hours=2)
+        requested_end=requested_start+timedelta(minutes=booking_minutes(time))
         active=c.execute("""SELECT visit_time,state FROM test_booking_operations
              WHERE user_id=? AND visit_date=? AND waitlist=0
                AND state NOT IN ('cancelled','rejected')""",(uid,date)).fetchall()
         if not waitlist:
             for booking in active:
                 booked_start=datetime.strptime(date+" "+booking["visit_time"],"%Y-%m-%d %H:%M")
-                booked_end=booked_start+timedelta(hours=2)
+                booked_end=booked_start+timedelta(minutes=booking_minutes(booking["visit_time"]))
                 if requested_start<=booked_end and requested_end>=booked_start:
                     raise BookingConflict("У вас уже есть бронь на соседнее или пересекающееся время в этот день.")
         c.execute("""INSERT INTO test_booking_operations
@@ -156,7 +159,8 @@ def claim_due_feedback(limit=15):
         rows=c.execute("""SELECT request_key,user_id FROM test_booking_operations
             WHERE waitlist=0 AND state IN ('arrived','visited')
             AND feedback_sent=0
-            AND datetime(visit_date || ' ' || visit_time,'+150 minutes')
+            AND datetime(visit_date || ' ' || visit_time,
+                CASE WHEN visit_time='21:30' THEN '+120 minutes' ELSE '+150 minutes' END)
                 <= datetime('now','+2 hours')
             AND datetime(visit_date || ' ' || visit_time,'+150 minutes')
                 >= datetime('now','+2 hours','-3 days')
