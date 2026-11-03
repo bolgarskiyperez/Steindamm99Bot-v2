@@ -36,32 +36,58 @@ async def call(method,path,params=None,payload=None,write=False):
         raise HTTPException(422,"Restoplace: "+str(data.get("error","некорректный ответ"))[:200])
     return data.get("responseData")
 
+# Only the configured restaurant's paired odd-hour slots are bookable.
+ALLOWED_STARTS=tuple(f"{h:02d}:{m:02d}" for h in (11,13,15,17,19,21) for m in (0,30))
+
+def reservation_minutes(time):
+    if time not in ALLOWED_STARTS:
+        raise HTTPException(422,"Выберите время из расписания ресторана: 11:00, 11:30, 13:00, 13:30 и далее до 21:30")
+    return 90 if time=="21:30" else 120
+
 def timeslot_start(date,time):
     try:
         start=datetime.strptime(date+" "+time,"%Y-%m-%d %H:%M")
     except ValueError as exc:
         raise HTTPException(422,"Некорректная дата или время") from exc
+    reservation_minutes(time)
     now=datetime.now(ZoneInfo("Europe/Kaliningrad")).replace(tzinfo=None)
     if start<=now or start>now+timedelta(days=90):
         raise HTTPException(422,"Выберите будущую дату в пределах 90 дней")
-    if not ("11:00"<=time<="21:00") or start.minute not in (0,30):
-        raise HTTPException(422,"Доступно время с 11:00 до 21:00 с шагом 30 минут")
     return start
 
 async def slots(date,count):
-    if count<1 or count>4: raise HTTPException(422,"Для 5+ гостей доступен лист ожидания")
-    try: datetime.strptime(date,"%Y-%m-%d")
-    except ValueError as exc: raise HTTPException(422,"Некорректная дата") from exc
-    data=await call("GET","/times/",params={"date":date,"length":120,"shift":30})
+    if count<1 or count>4: raise HTTPException(422,"Для 5–6 гостей доступен лист ожидания")
+    try:
+        datetime.strptime(date,"%Y-%m-%d")
+    except ValueError as exc:
+        raise HTTPException(422,"Некорректная дата") from exc
+    normal=await call("GET","/times/",params={"date":date,"length":120,"shift":30})
+    # The closing slot is 90 minutes, so its availability must be checked separately.
+    closing=await call("GET","/times/",params={"date":date,"length":90,"shift":30})
+    def available(records,time,minutes):
+        for entry in records if isinstance(records,list) else []:
+            raw=str(entry.get("from",""))
+            finish=str(entry.get("to",""))
+            if raw[:16]!=date+" "+time:
+                continue
+            try:
+                a=datetime.strptime(raw[:19],"%Y-%m-%d %H:%M:%S")
+                b=datetime.strptime(finish[:19],"%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                continue
+            if int((b-a).total_seconds()/60)!=minutes:
+                continue
+            return entry.get("counts",{}).get(str(count))=="free"
+        return False
     result=[]
-    for entry in data if isinstance(data,list) else []:
-        raw=str(entry.get("from",""))
-        time=raw[11:16]
-        try: start=timeslot_start(date,time)
-        except HTTPException: continue
-        if raw[:10]!=date: continue
-        available=entry.get("counts",{}).get(str(count))=="free"
-        result.append({"time":time,"available":available})
+    for time in ALLOWED_STARTS:
+        try:
+            timeslot_start(date,time)
+        except HTTPException:
+            continue
+        minutes=reservation_minutes(time)
+        records=closing if time=="21:30" else normal
+        result.append({"time":time,"available":available(records,time,minutes)})
     return result
 
 async def create(name,phone,date,time,count,waitlist=False):
@@ -71,7 +97,7 @@ async def create(name,phone,date,time,count,waitlist=False):
     if count<=4 and waitlist:
         raise HTTPException(422,"Для 1–4 гостей используйте обычное бронирование")
     payload={"from":start.strftime("%Y-%m-%d %H:%M:%S"),
-             "to":(start+timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S"),
+             "to":(start+timedelta(minutes=reservation_minutes(time))).strftime("%Y-%m-%d %H:%M:%S"),
              "name":name,"phone":phone,"count":count,
              "source":"telegram.ru","waitlist":waitlist,"deposit":False}
     return await call("POST","/reserves/",payload=payload,write=True)
