@@ -1,4 +1,4 @@
-import os, json, hmac, hashlib, time, logging, html, csv, io
+import os, json, hmac, hashlib, time, logging, html, csv, io, asyncio
 import httpx
 from telegram import Bot
 from access import allowed, role
@@ -19,13 +19,15 @@ LOCAL=os.getenv("LOCAL_PREVIEW")=="1"
 REVIEW_CHAT_ID=os.getenv("REVIEW_CHAT_ID","").strip()
 
 logger=logging.getLogger(__name__)
-APP_VERSION="2026-11-03-restoplace-test-v3"
+APP_VERSION="2026-11-03-restoplace-v3-feedback-mobile"
 class Base(BaseModel):
     initData:str=""
 class AdminQuery(Base):
     query:str=Field(default="",max_length=100)
     date:str=Field(default="",max_length=10)
     regularOnly:bool=False
+    includeExamples:bool=True
+    sort:str=Field(default="visits",pattern="^(visits|bookings|name|recent)$")
     offset:int=Field(default=0,ge=0,le=100000)
 class Review(Base):
     stars:int=Field(ge=1,le=5)
@@ -121,6 +123,68 @@ async def stop_embedded_bot():
     await polling_application.stop()
     await polling_application.shutdown()
     polling_application=None
+
+
+async def send_due_feedback_once():
+    if os.getenv("FEEDBACK_AUTO_DEMO_ENABLED")!="1" or rp.mode()!="test" or not TOKEN:
+        return
+    claimed=tb.claim_due_feedback()
+    if not claimed:
+        return
+    for entry in claimed:
+        try:
+            if polling_application is not None:
+                bot=polling_application.bot
+                await bot.send_message(
+                    chat_id=entry["user_id"],
+                    text="Спасибо, что посетили Steindamm 99! Как прошёл ваш вечер? Будем рады вашей оценке и отзыву ⭐",
+                    reply_markup=__import__("telegram").InlineKeyboardMarkup([[
+                        __import__("telegram").InlineKeyboardButton(
+                            "⭐ Оставить отзыв",
+                            web_app=__import__("telegram").WebAppInfo(
+                                url=os.getenv("WEBAPP_URL","").rstrip("/") + "/app-demo-v3-20261103?section=review")
+                        )
+                    ]])
+                )
+            else:
+                async with Bot(token=TOKEN) as bot:
+                    await bot.send_message(
+                        chat_id=entry["user_id"],
+                        text="Спасибо, что посетили Steindamm 99! Как прошёл ваш вечер? Будем рады вашей оценке и отзыву ⭐"
+                    )
+            tb.finish_feedback(entry["request_key"],True)
+        except Exception:
+            tb.finish_feedback(entry["request_key"],False)
+            logger.warning("Failed to deliver due feedback message; will retry later")
+
+async def feedback_scheduler():
+    while True:
+        try:
+            await send_due_feedback_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Feedback scheduler check failed")
+        await asyncio.sleep(60)
+
+feedback_task=None
+
+@app.on_event("startup")
+async def start_feedback_scheduler():
+    global feedback_task
+    if os.getenv("FEEDBACK_AUTO_DEMO_ENABLED")=="1":
+        feedback_task=asyncio.create_task(feedback_scheduler())
+
+@app.on_event("shutdown")
+async def stop_feedback_scheduler():
+    global feedback_task
+    if feedback_task is not None:
+        feedback_task.cancel()
+        try:
+            await feedback_task
+        except asyncio.CancelledError:
+            pass
+        feedback_task=None
 
 @app.get("/legal/privacy")
 def legal_privacy():
@@ -297,7 +361,7 @@ def demo_export(body:Base):
 @app.post("/api/restoplace/admin/guests")
 def demo_guests(body:AdminQuery):
     require_admin(body.initData,"manager")
-    return {"items":tb.guest_report(body.query,body.regularOnly)}
+    return {"items":tb.crm_guests(body.query,body.regularOnly,body.date,body.sort,body.includeExamples)}
 
 class DemoStatusChange(Base):
     reserveId:str=Field(min_length=1,max_length=30,pattern=r"^[0-9]+$")
@@ -349,14 +413,6 @@ async def restoplace_webhook(secret:str,request:Request):
     if not isinstance(status,int):
         return {"ok":True,"ignored":True}
     matched=tb.event_for_known_booking(reserve_id,status,opened=bool(data.get("time_open")))
-    if matched and status==5 and data.get("time_open") and os.getenv("FEEDBACK_AUTO_DEMO_ENABLED")=="1":
-        uid=tb.claim_feedback(reserve_id)
-        if uid and TOKEN:
-            try:
-                async with Bot(token=TOKEN) as bot:
-                    await bot.send_message(chat_id=uid,text="Спасибо за визит в Steindamm 99! Если будет минутка, оставьте отзыв через Mini App.")
-            except Exception:
-                logger.exception("Could not send one-time demo feedback reminder")
     return {"ok":True,"matched":matched}
 
 @app.post("/api/booking")
