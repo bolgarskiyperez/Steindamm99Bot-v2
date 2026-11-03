@@ -162,7 +162,8 @@ def claim_due_feedback(limit=15):
             AND datetime(visit_date || ' ' || visit_time,
                 CASE WHEN visit_time='21:30' THEN '+120 minutes' ELSE '+150 minutes' END)
                 <= datetime('now','+2 hours')
-            AND datetime(visit_date || ' ' || visit_time,'+150 minutes')
+            AND datetime(visit_date || ' ' || visit_time,
+                CASE WHEN visit_time='21:30' THEN '+120 minutes' ELSE '+150 minutes' END)
                 >= datetime('now','+2 hours','-3 days')
             AND (feedback_claimed_at IS NULL OR feedback_claimed_at < datetime('now','-15 minutes'))
             ORDER BY visit_date,visit_time LIMIT ?""",(limit,)).fetchall()
