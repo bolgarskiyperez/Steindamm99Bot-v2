@@ -13,7 +13,6 @@ RESTOPLACE_MODE=test
 RESTOPLACE_TEST_API_KEY=<API-ключ-ТОЛЬКО-отдельного-тестового-заведения>
 RESTOPLACE_TEST_VENUE_CONFIRMED=yes
 RESTOPLACE_TEST_WRITES=true
-DEMO_TESTER_IDS=<telegram-id-тестировщика>,<telegram-id-второго-тестировщика>
 RESTOPLACE_WEBHOOK_SECRET=<случайная-строка-минимум-32-символа>
 ALLOW_CONTACT_GROUP_NOTIFICATIONS=0
 FEEDBACK_AUTO_DEMO_ENABLED=0
@@ -26,7 +25,7 @@ ALLOW_LEGACY_EXPORT=0
 
 - `RESTOPLACE_MODE=mock` — обращения к Restoplace отключены, запись невозможна (режим по умолчанию).
 - `RESTOPLACE_MODE=test`, `RESTOPLACE_TEST_WRITES=false` — только чтение доступных слотов тестового заведения.
-- `RESTOPLACE_MODE=test`, `RESTOPLACE_TEST_VENUE_CONFIRMED=yes`, `RESTOPLACE_TEST_WRITES=true` — разрешены **записи только в тестовый аккаунт**, ключ которого предоставлен. Доступ к созданию только у администраторов или Telegram ID из `DEMO_TESTER_IDS`.
+- `RESTOPLACE_MODE=test`, `RESTOPLACE_TEST_VENUE_CONFIRMED=yes`, `RESTOPLACE_TEST_WRITES=true` — разрешены **записи только в тестовый аккаунт**, ключ которого предоставлен. Создание тестовых броней доступно любому пользователю, который открыл Mini App через Telegram с корректным подписанным `initData`.
 
 При демонстрационной записи в Restoplace отправляются только синтетические контактные данные `Тестовый гость Steindamm99` / `79990000000`. Депозиты при создании тестовых броней выключены. Проверяйте настройку тестового заведения до включения записи.
 
