@@ -28,6 +28,12 @@ def init():
         )""")
         c.execute("CREATE INDEX IF NOT EXISTS idx_test_operations_user ON test_booking_operations(user_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_test_operations_external ON test_booking_operations(external_id)")
+        cols={row["name"] for row in c.execute("PRAGMA table_info(test_booking_operations)")}
+        if "feedback_sent" not in cols:
+            c.execute("ALTER TABLE test_booking_operations ADD COLUMN feedback_sent INTEGER NOT NULL DEFAULT 0")
+        if "feedback_claimed_at" not in cols:
+            c.execute("ALTER TABLE test_booking_operations ADD COLUMN feedback_claimed_at TEXT")
+
 
 def start(key,uid,name,phone,date,time,count,waitlist):
     init()
@@ -126,18 +132,60 @@ def set_external_status(external_id,state):
         db.execute("UPDATE test_booking_operations SET state=?,updated_at=CURRENT_TIMESTAMP WHERE external_id=?",
                    (state,str(external_id)))
 
-def claim_feedback(external_id):
-    """Guarantee only one automatic feedback message per recorded completed visit."""
+def claim_due_feedback(limit=15):
+    """Claim elapsed, non-waitlist test visits atomically; does not require a webhook."""
     init()
-    with connect() as db:
-        db.execute("ALTER TABLE test_booking_operations ADD COLUMN feedback_sent INTEGER NOT NULL DEFAULT 0") if not any(
-            x["name"]=="feedback_sent" for x in db.execute("PRAGMA table_info(test_booking_operations)")
-        ) else None
-        db.execute("BEGIN IMMEDIATE")
-        row=db.execute("""SELECT user_id FROM test_booking_operations
-                          WHERE external_id=? AND state='visited' AND feedback_sent=0""",
-                       (str(external_id),)).fetchone()
-        if not row:return None
-        db.execute("UPDATE test_booking_operations SET feedback_sent=1 WHERE external_id=?",
-                   (str(external_id),))
-        return row["user_id"]
+    with connect() as c:
+        c.execute("BEGIN IMMEDIATE")
+        rows=c.execute("""SELECT request_key,user_id FROM test_booking_operations
+            WHERE waitlist=0 AND state IN ('confirmed','arrived','visited')
+            AND feedback_sent=0
+            AND datetime(visit_date || ' ' || visit_time,'+150 minutes')
+                <= datetime('now','+2 hours')
+            AND datetime(visit_date || ' ' || visit_time,'+150 minutes')
+                >= datetime('now','+2 hours','-3 days')
+            AND (feedback_claimed_at IS NULL OR feedback_claimed_at < datetime('now','-15 minutes'))
+            ORDER BY visit_date,visit_time LIMIT ?""",(limit,)).fetchall()
+        for row in rows:
+            c.execute("UPDATE test_booking_operations SET feedback_claimed_at=CURRENT_TIMESTAMP WHERE request_key=?",(row["request_key"],))
+        return [dict(row) for row in rows]
+
+def finish_feedback(key,delivered):
+    init()
+    with connect() as c:
+        if delivered:
+            c.execute("""UPDATE test_booking_operations SET feedback_sent=1,feedback_claimed_at=NULL
+                         WHERE request_key=?""",(key,))
+        else:
+            c.execute("""UPDATE test_booking_operations SET feedback_claimed_at=NULL
+                         WHERE request_key=?""",(key,))
+
+DEMO_EXAMPLES=[
+    {"id":-101,"name":"Анна Соколова","phone":"79990001001","created_at":"2026-10-10 12:40:00","bookings":7,"visits":6},
+    {"id":-102,"name":"Дмитрий Орлов","phone":"79990001002","created_at":"2026-10-12 09:15:00","bookings":3,"visits":2},
+    {"id":-103,"name":"Мария Белова","phone":"79990001003","created_at":"2026-10-16 14:05:00","bookings":6,"visits":5},
+    {"id":-104,"name":"Алексей Морозов","phone":"79990001004","created_at":"2026-10-20 18:10:00","bookings":2,"visits":1},
+    {"id":-105,"name":"Елена Волкова","phone":"79990001005","created_at":"2026-10-23 11:50:00","bookings":4,"visits":3},
+    {"id":-106,"name":"Игорь Ким","phone":"79990001006","created_at":"2026-10-25 16:30:00","bookings":8,"visits":7},
+    {"id":-107,"name":"Ольга Петрова","phone":"79990001007","created_at":"2026-11-01 15:20:00","bookings":1,"visits":0}
+]
+
+def crm_guests(query="",regular_only=False,registered_date="",sort="visits",examples=True):
+    records=guest_report("",False)
+    if examples:
+        records=records+[{**e,"demo":True} for e in DEMO_EXAMPLES]
+    results=[]
+    needle=query.strip().lower()
+    for src in records:
+        row=dict(src)
+        row["status"]="Постоянный гость" if row["visits"]>=5 else "Гость"
+        row.setdefault("demo",False)
+        if regular_only and row["visits"]<5:continue
+        if registered_date and not str(row["created_at"]).startswith(registered_date):continue
+        if needle and not any(needle in str(row[k]).lower() for k in ("id","name","phone")):continue
+        results.append(row)
+    if sort=="name":results.sort(key=lambda x:x["name"].lower())
+    elif sort=="recent":results.sort(key=lambda x:x["created_at"],reverse=True)
+    elif sort=="bookings":results.sort(key=lambda x:(-x["bookings"],-x["visits"]))
+    else:results.sort(key=lambda x:(-x["visits"],-x["bookings"]))
+    return results[:150]
